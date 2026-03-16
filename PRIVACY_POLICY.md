@@ -1,6 +1,6 @@
 # Privacy Policy — WebGist Chrome Extension
 
-**Last updated: March 2026**
+**Last updated: March 16, 2026** · **Version 1.0.0**
 
 WebGist is a Chrome browser extension that summarizes webpages using AI. This policy explains clearly what data is collected, what is not collected, and how any data that leaves your device is handled.
 
