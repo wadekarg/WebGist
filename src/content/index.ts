@@ -159,7 +159,10 @@ chrome.runtime.onMessage.addListener(
     }
 
     if (message.type === 'GET_VOICES') {
+      let responded = false
       const deliver = () => {
+        if (responded) return
+        responded = true
         const voices = window.speechSynthesis.getVoices()
         sendResponse(voices.map((v): VoiceInfo => ({ name: v.name, lang: v.lang, default: v.default })))
       }
@@ -168,7 +171,7 @@ chrome.runtime.onMessage.addListener(
         deliver()
       } else {
         window.speechSynthesis.addEventListener('voiceschanged', deliver, { once: true })
-        setTimeout(() => sendResponse([]), 2000) // timeout fallback
+        setTimeout(deliver, 2000) // timeout fallback — uses same guard to prevent double-response
       }
       return true
     }

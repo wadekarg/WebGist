@@ -226,7 +226,12 @@ export default function App() {
                   return
                 }
                 const result = results?.[0]?.result
-                if (!result) {
+                if (
+                  !result ||
+                  typeof (result as PageData).text !== 'string' ||
+                  typeof (result as PageData).title !== 'string' ||
+                  typeof (result as PageData).url !== 'string'
+                ) {
                   reject(new Error('No result from page extraction'))
                   return
                 }

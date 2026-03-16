@@ -138,9 +138,13 @@ async function ttsViaWebSpeech(
 
   let started = false
 
-  // Silent-fail: if the first chunk doesn't start within 3 s, abort
+  // Silent-fail: if the first chunk doesn't start within 3 s, stop Web Speech
+  // and let ttsSpeak() fall through to the Google Translate TTS tier.
   const silentFailTimer = setTimeout(() => {
-    if (!started) stopWebSpeech()
+    if (!started) {
+      stopWebSpeech()
+      broadcast({ type: 'TTS_EVENT', event: 'silent-fail' })
+    }
   }, 3000)
 
   try {

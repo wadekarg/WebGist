@@ -12,6 +12,7 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
   const [showKey, setShowKey] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   const selectedProvider = PROVIDERS.find((p) => p.id === settings.providerId) ?? PROVIDERS[0]
 
@@ -41,12 +42,13 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
 
   async function handleSave() {
     setSaving(true)
+    setSaveError('')
     try {
       await saveSettings(settings)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch (err) {
-      console.error('Failed to save settings:', err)
+      setSaveError(err instanceof Error ? err.message : 'Failed to save settings')
     } finally {
       setSaving(false)
     }
@@ -142,6 +144,10 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
           Your API key is stored locally in Chrome storage and never sent anywhere except the AI provider's API.
         </p>
       </div>
+
+      {saveError && (
+        <p className="text-red-400 text-xs px-1">{saveError}</p>
+      )}
 
       {/* Save button */}
       <button

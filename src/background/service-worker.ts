@@ -91,5 +91,5 @@ chrome.runtime.onMessage.addListener(
 )
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('[WebGist] Extension installed/updated.')
+  // Intentionally empty — no setup needed on install/update
 })
