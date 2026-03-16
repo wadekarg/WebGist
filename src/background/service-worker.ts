@@ -82,7 +82,14 @@ chrome.runtime.onMessage.addListener(
     }
 
     if (message.type === 'OPEN_POPUP') {
-      chrome.action.openPopup().catch(() => {})
+      // chrome.action.openPopup() requires a windowId in MV3 service workers —
+      // without it the call silently fails. Query the active tab first to get windowId.
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const windowId = tabs[0]?.windowId
+        if (windowId) {
+          chrome.action.openPopup({ windowId }).catch(() => {})
+        }
+      })
       return false
     }
 

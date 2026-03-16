@@ -26,19 +26,22 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
       {/* Center tabs */}
       <div className="flex items-center bg-gray-800/60 border border-gray-700/40 rounded-lg p-0.5 gap-0.5">
-        {(['summary', 'reader', 'history'] as const).map((tab) => (
+        {([
+          { id: 'summary', label: 'Summary', icon: null },
+          { id: 'reader',  label: 'Read',    icon: <BookOpen size={10} /> },
+          { id: 'history', label: 'History', icon: <Clock size={10} /> },
+        ] as const).map(({ id, label, icon }) => (
           <button
-            key={tab}
-            onClick={() => onTabChange(tab)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all
-              ${activeTab === tab
+            key={id}
+            onClick={() => onTabChange(id)}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-medium transition-all whitespace-nowrap
+              ${activeTab === id
                 ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm'
                 : 'text-gray-400 hover:text-white'
               }`}
           >
-            {tab === 'history' && <Clock size={10} />}
-            {tab === 'reader'  && <BookOpen size={10} />}
-            {tab === 'summary' ? 'Summary' : tab === 'reader' ? 'Read' : 'History'}
+            {icon}
+            {label}
           </button>
         ))}
       </div>
