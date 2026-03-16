@@ -3,6 +3,7 @@ import Header from './components/Header'
 import ProviderSettings from './components/ProviderSettings'
 import SummaryPanel from './components/SummaryPanel'
 import TranslationPanel from './components/TranslationPanel'
+import AudioControls from './components/AudioControls'
 import ExportPanel from './components/ExportPanel'
 import HistoryPanel from './components/HistoryPanel'
 import ReaderPanel from './components/ReaderPanel'
@@ -62,6 +63,7 @@ export default function App() {
   const [summary, setSummary] = useState('')
   const [translatedSummary, setTranslatedSummary] = useState('')
   const [translatedLang, setTranslatedLang] = useState('')
+  const [translatedLangCode, setTranslatedLangCode] = useState('')
   const [pageData, setPageData] = useState<PageData>({ text: '', title: '', url: '' })
 
   const [status, setStatus] = useState<Status>('idle')
@@ -258,6 +260,7 @@ export default function App() {
     setSummary('')
     setTranslatedSummary('')
     setTranslatedLang('')
+    setTranslatedLangCode('')
     setIsSaved(false)
 
     try {
@@ -305,6 +308,7 @@ ${data.text.slice(0, 15000)}`
     setSummary('')
     setTranslatedSummary('')
     setTranslatedLang('')
+    setTranslatedLangCode('')
     setIsSaved(false)
 
     try {
@@ -335,6 +339,7 @@ ${data.text.slice(0, 15000)}`
     setTranslateError('')
     setTranslatedSummary('')
     setTranslatedLang(langName)
+    setTranslatedLangCode(langCode)
 
     try {
       const trimmed = await googleTranslate(summary, langCode)
@@ -364,6 +369,7 @@ ${data.text.slice(0, 15000)}`
       const msg = err instanceof Error ? err.message : 'Translation failed'
       setTranslateError(msg)
       setTranslatedLang('')
+      setTranslatedLangCode('')
     } finally {
       setIsTranslating(false)
     }
@@ -508,6 +514,14 @@ ${data.text.slice(0, 15000)}`
               isTranslating={isTranslating}
               translateError={translateError}
               onTranslate={handleTranslate}
+            />
+          )}
+
+          {/* Read Aloud — reads translated text if available, otherwise original summary */}
+          {hasSummary && (
+            <AudioControls
+              text={translatedSummary || summary}
+              langCode={translatedSummary && translatedLangCode ? translatedLangCode : undefined}
             />
           )}
 
