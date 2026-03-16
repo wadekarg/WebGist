@@ -147,7 +147,11 @@ function ttsSpeak(text: string, voiceName?: string) {
 }
 
 chrome.runtime.onMessage.addListener(
-  (message: { type: string; text?: string; voiceName?: string }, _sender, sendResponse) => {
+  (message: { type: string; text?: string; voiceName?: string; target?: string }, _sender, sendResponse) => {
+
+    // Messages tagged for the offscreen document are broadcast to all listeners —
+    // ignore them here so the content script and offscreen don't both try to speak.
+    if (message.target === 'offscreen') return false
 
     if (message.type === 'GET_PAGE_TEXT') {
       sendResponse({
