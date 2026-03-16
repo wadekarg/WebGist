@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — WebGist</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+
+    /* ---- Header ---- */
+    header {
+      background: linear-gradient(135deg, #3730a3 0%, #4f46e5 50%, #6d28d9 100%);
+      padding: 48px 24px 40px;
+      text-align: center;
+    }
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      text-decoration: none;
+    }
+    .logo img {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+    }
+    .logo-text {
+      font-size: 24px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+    header h1 {
+      font-size: clamp(22px, 4vw, 32px);
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    header p {
+      color: #c7d2fe;
+      font-size: 14px;
+    }
+
+    /* ---- Layout ---- */
+    main {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    /* ---- Summary table ---- */
+    .summary-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 40px;
+    }
+    .summary-card h2 {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #818cf8;
+      margin-bottom: 16px;
+    }
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .summary-table tr:not(:last-child) td {
+      border-bottom: 1px solid #334155;
+    }
+    .summary-table td {
+      padding: 10px 4px;
+      font-size: 14px;
+    }
+    .summary-table td:first-child {
+      color: #94a3b8;
+      width: 55%;
+      padding-right: 16px;
+    }
+    .summary-table td:last-child {
+      font-weight: 600;
+    }
+    .yes { color: #34d399; }
+    .no  { color: #f87171; }
+
+    /* ---- Sections ---- */
+    section {
+      margin-bottom: 40px;
+    }
+    section h2 {
+      font-size: 19px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #1e293b;
+    }
+    section h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #a5b4fc;
+      margin: 20px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    p {
+      color: #94a3b8;
+      font-size: 15px;
+      margin-bottom: 12px;
+    }
+
+    /* ---- Data table ---- */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin: 16px 0;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #334155;
+    }
+    .data-table thead {
+      background: #1e293b;
+    }
+    .data-table th {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .data-table td {
+      padding: 11px 14px;
+      color: #94a3b8;
+      border-top: 1px solid #1e293b;
+      vertical-align: top;
+    }
+    .data-table tr:nth-child(even) td {
+      background: #0f172a40;
+    }
+    .data-table td:first-child {
+      font-weight: 500;
+      color: #e2e8f0;
+      white-space: nowrap;
+    }
+
+    /* ---- Permission chips ---- */
+    .perm-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 16px 0;
+    }
+    .perm-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .perm-name {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      color: #a5b4fc;
+      background: #312e81;
+      border-radius: 6px;
+      padding: 2px 8px;
+      white-space: nowrap;
+      min-width: 110px;
+      text-align: center;
+      margin-top: 1px;
+    }
+    .perm-desc {
+      font-size: 14px;
+      color: #94a3b8;
+    }
+
+    /* ---- Note box ---- */
+    .note {
+      background: #1e293b;
+      border-left: 3px solid #4f46e5;
+      border-radius: 0 10px 10px 0;
+      padding: 14px 16px;
+      font-size: 14px;
+      color: #94a3b8;
+      margin: 16px 0;
+    }
+    .note strong { color: #e2e8f0; }
+
+    /* ---- Footer ---- */
+    footer {
+      background: #0f172a;
+      border-top: 1px solid #1e293b;
+      text-align: center;
+      padding: 28px 24px;
+      font-size: 13px;
+      color: #475569;
+    }
+    footer a {
+      color: #818cf8;
+      text-decoration: none;
+    }
+    footer a:hover { text-decoration: underline; }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 600px) {
+      .perm-name { min-width: unset; }
+      .data-table td:first-child { white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="https://github.com/wadekarg/WebGist">
+    <img src="screenshot-summary.png" alt="" style="width:48px;height:48px;border-radius:12px;object-fit:cover;object-position:right top;" />
+    <span class="logo-text">WebGist</span>
+  </a>
+  <h1>Privacy Policy</h1>
+  <p>Last updated: March 2026</p>
+</header>
+
+<main>
+
+  <!-- Quick summary -->
+  <div class="summary-card">
+    <h2>Quick Summary</h2>
+    <table class="summary-table">
+      <tr><td>Do we collect personal data?</td>         <td class="no">No</td></tr>
+      <tr><td>Do we track your browsing?</td>           <td class="no">No</td></tr>
+      <tr><td>Is your data sold to anyone?</td>         <td class="no">No</td></tr>
+      <tr><td>Is your API key sent to our servers?</td> <td class="no">No — stored only on your device</td></tr>
+      <tr><td>Is page content sent anywhere?</td>       <td class="yes">Only to the AI provider you choose, only when you click "AI Summary"</td></tr>
+      <tr><td>Do we use analytics or tracking?</td>     <td class="no">No</td></tr>
+    </table>
+  </div>
+
+  <!-- Section 1 -->
+  <section>
+    <h2>1. Data We Do Not Collect</h2>
+    <p>
+      WebGist has no backend server, no account system, and no remote database.
+      The extension author has no access to anything on your device.
+    </p>
+    <p>We do <strong>not</strong> collect:</p>
+    <ul style="color:#94a3b8;font-size:15px;padding-left:20px;display:flex;flex-direction:column;gap:6px;">
+      <li>Your identity or personal information</li>
+      <li>Your browsing history or visited URLs</li>
+      <li>Your API keys or credentials</li>
+      <li>The content of pages you visit</li>
+      <li>Usage statistics, click events, or any telemetry</li>
+      <li>Crash reports or error logs</li>
+    </ul>
+  </section>
+
+  <!-- Section 2 -->
+  <section>
+    <h2>2. Data Stored Locally on Your Device</h2>
+    <p>WebGist stores the following data <strong>only on your device</strong> using Chrome's built-in storage APIs.</p>
+
+    <h3>Settings — chrome.storage.sync</h3>
+    <p>Your chosen AI provider, model, and API keys. Synced across devices via Chrome Sync (subject to <a href="https://policies.google.com/privacy" style="color:#818cf8;">Google's privacy policy</a>). Cleared when you remove the extension.</p>
+
+    <h3>History — chrome.storage.local</h3>
+    <p>Page titles, URLs, summaries, and translations you explicitly save. Never uploaded. Cleared any time from the History tab.</p>
+
+    <h3>Session Cache — chrome.storage.session</h3>
+    <p>A temporary per-tab summary cache so results survive the popup closing and reopening. Automatically deleted when the browser closes.</p>
+
+    <h3>Floating Button Position — localStorage</h3>
+    <p>The screen position of the draggable button, stored per-website.</p>
+  </section>
+
+  <!-- Section 3 -->
+  <section>
+    <h2>3. Data Sent to Third-Party Services</h2>
+    <p>
+      WebGist contacts external services <strong>only when you explicitly trigger an action</strong>.
+      Nothing is sent automatically in the background.
+    </p>
+
+    <h3>AI Provider — when you click "AI Summary"</h3>
+    <p>
+      The extracted page text (up to ~15,000 characters), page title, URL, and your summary
+      instructions are sent directly to the AI provider you configured. Your API key is sent
+      as an authentication header. The request goes from your browser straight to the provider
+      — it does not pass through any WebGist server.
+    </p>
+
+    <table class="data-table">
+      <thead><tr><th>Provider</th><th>Privacy Policy</th></tr></thead>
+      <tbody>
+        <tr><td>Google Gemini</td>  <td><a href="https://policies.google.com/privacy" style="color:#818cf8;">policies.google.com/privacy</a></td></tr>
+        <tr><td>Groq</td>           <td><a href="https://groq.com/privacy-policy" style="color:#818cf8;">groq.com/privacy-policy</a></td></tr>
+        <tr><td>Mistral</td>        <td><a href="https://mistral.ai/privacy" style="color:#818cf8;">mistral.ai/privacy</a></td></tr>
+        <tr><td>Cohere</td>         <td><a href="https://cohere.com/privacy" style="color:#818cf8;">cohere.com/privacy</a></td></tr>
+        <tr><td>OpenRouter</td>     <td><a href="https://openrouter.ai/privacy" style="color:#818cf8;">openrouter.ai/privacy</a></td></tr>
+        <tr><td>Anthropic</td>      <td><a href="https://www.anthropic.com/privacy" style="color:#818cf8;">anthropic.com/privacy</a></td></tr>
+        <tr><td>Cerebras</td>       <td><a href="https://cerebras.ai/privacy" style="color:#818cf8;">cerebras.ai/privacy</a></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Jina AI Reader — when you click "Full Page"</h3>
+    <p>
+      If the optional local extraction server is not running, the current page URL is sent to
+      <a href="https://jina.ai" style="color:#818cf8;">Jina AI Reader</a> (r.jina.ai) to fetch
+      clean article text. Only the URL is sent — no identity or personal data.
+    </p>
+
+    <h3>Google Translate — when you click "Translate"</h3>
+    <p>
+      The summary text is sent to Google's Translate API. No personal information is included.
+      See <a href="https://policies.google.com/privacy" style="color:#818cf8;">Google's Privacy Policy</a>.
+    </p>
+
+    <h3>Google Translate TTS — when you use Read Aloud</h3>
+    <p>
+      If no system TTS engine is available, text chunks are sent to Google Translate TTS.
+      No personal information is included.
+    </p>
+
+    <h3>Trafilatura Local Server — optional</h3>
+    <p>
+      If you run <code style="color:#a5b4fc;background:#1e293b;padding:1px 6px;border-radius:4px;">webgist_server.py</code>,
+      page HTML is sent to <code style="color:#a5b4fc;background:#1e293b;padding:1px 6px;border-radius:4px;">127.0.0.1:7777</code>
+      — a server on your own machine. This data never leaves your device.
+    </p>
+  </section>
+
+  <!-- Section 4 -->
+  <section>
+    <h2>4. Permissions Used</h2>
+    <div class="perm-list">
+      <div class="perm-item">
+        <span class="perm-name">activeTab</span>
+        <span class="perm-desc">Read the content of the tab you are currently viewing, only when you click a button.</span>
+      </div>
+      <div class="perm-item">
+        <span class="perm-name">scripting</span>
+        <span class="perm-desc">Inject the content extraction script into the active tab to extract article text.</span>
+      </div>
+      <div class="perm-item">
+        <span class="perm-name">storage</span>
+        <span class="perm-desc">Save your settings, history, and session cache locally on your device.</span>
+      </div>
+      <div class="perm-item">
+        <span class="perm-name">offscreen</span>
+        <span class="perm-desc">Run text-to-speech in a background context so audio continues when the popup closes.</span>
+      </div>
+      <div class="perm-item">
+        <span class="perm-name">tabs</span>
+        <span class="perm-desc">Read the current tab's URL and title to include in the summary and history.</span>
+      </div>
+      <div class="perm-item">
+        <span class="perm-name">&lt;all_urls&gt;</span>
+        <span class="perm-desc">Inject the floating action button on all pages and communicate with the optional local server at 127.0.0.1:7777.</span>
+      </div>
+    </div>
+    <div class="note">
+      <strong>Note:</strong> WebGist does not read tab content in the background.
+      Content is only extracted when you explicitly click "AI Summary" or "Full Page".
+    </div>
+  </section>
+
+  <!-- Section 5 -->
+  <section>
+    <h2>5. Children's Privacy</h2>
+    <p>
+      WebGist does not knowingly collect any information from children under 13 years of age
+      and does not include features directed at children.
+    </p>
+  </section>
+
+  <!-- Section 6 -->
+  <section>
+    <h2>6. Changes to This Policy</h2>
+    <p>
+      If this policy is updated, the "Last updated" date at the top will change.
+      Significant changes will be noted in the GitHub release notes.
+    </p>
+  </section>
+
+  <!-- Section 7 -->
+  <section>
+    <h2>7. Contact</h2>
+    <p>
+      Questions about this privacy policy? Open an issue on GitHub:
+      <a href="https://github.com/wadekarg/WebGist/issues" style="color:#818cf8;">
+        github.com/wadekarg/WebGist/issues
+      </a>
+    </p>
+    <div class="note">
+      <strong>WebGist is open source.</strong>
+      You can audit every line of code to verify these claims at
+      <a href="https://github.com/wadekarg/WebGist" style="color:#818cf8;">github.com/wadekarg/WebGist</a>.
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>
+    <a href="https://github.com/wadekarg/WebGist">WebGist</a> &nbsp;·&nbsp;
+    <a href="https://github.com/wadekarg/WebGist/blob/master/README.md">Documentation</a> &nbsp;·&nbsp;
+    Open source — MIT License
+  </p>
+</footer>
+
+</body>
+</html>
