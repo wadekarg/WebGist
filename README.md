@@ -204,7 +204,7 @@ WebGist is designed with privacy first:
 - **Full Page and translation** — these use Jina AI and Google Translate respectively; only the text content (not your identity or browsing history) is sent
 - **History stored locally** — in Chrome's local storage on your device only
 
-See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for the full policy.
+See the full policy at **https://wadekarg.github.io/WebGist/privacy** or [PRIVACY_POLICY.md](PRIVACY_POLICY.md).
 
 ---
 
