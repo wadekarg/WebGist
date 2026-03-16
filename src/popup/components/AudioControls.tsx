@@ -4,8 +4,10 @@ import { Play, Pause, Square, Volume2, ChevronDown } from 'lucide-react'
 interface VoiceInfo { name: string; lang: string; default: boolean }
 
 interface AudioControlsProps {
-  text: string
-  langCode?: string   // BCP 47 code, e.g. 'es', 'fr', 'en' — caller decides what to read
+  originalText: string
+  translatedText?: string
+  translatedLang?: string      // display name e.g. "Spanish"
+  translatedLangCode?: string  // BCP-47 e.g. 'es'
 }
 
 type AudioState = 'idle' | 'playing' | 'paused'
@@ -18,6 +20,8 @@ const SPEEDS = [
   { label: '2×',    value: 2.0  },
 ]
 
+// Shown only when no system voices are available (Linux/ChromeOS with no TTS engine).
+// Lets the user pick a Google Translate TTS accent for English.
 const EN_LOCALES = [
   { code: 'en-US', label: 'English (US)' },
   { code: 'en-GB', label: 'English (UK)' },
@@ -52,17 +56,26 @@ function getTtsState(): Promise<{ isPlaying: boolean; isPaused: boolean }> {
   })
 }
 
-export default function AudioControls({ text, langCode }: AudioControlsProps) {
-  const [audioState, setAudioState] = useState<AudioState>('idle')
-  const [voices, setVoices]         = useState<VoiceInfo[]>([])
+export default function AudioControls({
+  originalText,
+  translatedText,
+  translatedLang,
+  translatedLangCode,
+}: AudioControlsProps) {
+  const [audioState, setAudioState]       = useState<AudioState>('idle')
+  const [voices, setVoices]               = useState<VoiceInfo[]>([])
   const [selectedVoice, setSelectedVoice] = useState('')
   const [googleLocale, setGoogleLocale]   = useState('en-US')
-  const [speed, setSpeed]           = useState(1.0)
-  const [ttsError, setTtsError]     = useState('')
+  const [speed, setSpeed]                 = useState(1.0)
+  const [ttsError, setTtsError]           = useState('')
+  const [readingSource, setReadingSource] = useState<'original' | 'translated'>('original')
   const mountedRef = useRef(false)
 
-  const isEnglish      = !langCode || langCode.startsWith('en')
-  const activeLangCode = isEnglish ? googleLocale : langCode!
+  // Derived: what text + langCode are actually being read
+  const usingTranslated = readingSource === 'translated' && !!translatedText
+  const activeText  = usingTranslated ? translatedText! : originalText
+  const ttsLangCode = usingTranslated && translatedLangCode ? translatedLangCode : googleLocale
+  const isEnglish   = !usingTranslated
 
   // On mount: load voices and sync TTS state from offscreen
   useEffect(() => {
@@ -73,20 +86,25 @@ export default function AudioControls({ text, langCode }: AudioControlsProps) {
     })
   }, [])
 
-  // Auto-select the best voice for the current language
+  // Auto-select best voice for current source language
   useEffect(() => {
     if (voices.length === 0) return
-    const prefix = (langCode ?? 'en').split('-')[0].toLowerCase()
+    const prefix = (usingTranslated ? (translatedLangCode ?? 'en') : 'en').split('-')[0].toLowerCase()
     const match  = voices.find(v => v.lang.toLowerCase().startsWith(prefix))
     setSelectedVoice(match?.name ?? '')
-  }, [langCode, voices])
+  }, [usingTranslated, translatedLangCode, voices])
 
-  // Stop TTS whenever the text or language changes (skips the initial mount)
+  // Stop TTS when source text or reading language changes (after initial mount)
   useEffect(() => {
     if (!mountedRef.current) { mountedRef.current = true; return }
     sendTtsMessage('TTS_STOP')
     setAudioState('idle')
-  }, [text, langCode])
+  }, [activeText, readingSource])
+
+  // Reset to original when translation is cleared
+  useEffect(() => {
+    if (!translatedText) setReadingSource('original')
+  }, [translatedText])
 
   // Listen for TTS events from offscreen
   useEffect(() => {
@@ -110,9 +128,9 @@ export default function AudioControls({ text, langCode }: AudioControlsProps) {
   }, [speed])
 
   function handlePlay() {
-    if (!text) return
+    if (!activeText) return
     if (audioState === 'paused') { sendTtsMessage('TTS_RESUME'); setAudioState('playing'); return }
-    sendTtsMessage('TTS_SPEAK', text, selectedVoice || undefined, activeLangCode, speed)
+    sendTtsMessage('TTS_SPEAK', activeText, selectedVoice || undefined, ttsLangCode, speed)
     setAudioState('playing')
   }
   function handlePause() {
@@ -120,7 +138,9 @@ export default function AudioControls({ text, langCode }: AudioControlsProps) {
   }
   function handleStop() { sendTtsMessage('TTS_STOP'); setAudioState('idle') }
 
-  if (!text) return null
+  if (!originalText) return null
+
+  const hasTranslation = !!translatedText
 
   return (
     <div className="px-4 pb-3" onClick={() => setTtsError('')}>
@@ -169,6 +189,33 @@ export default function AudioControls({ text, langCode }: AudioControlsProps) {
         {/* Options */}
         <div className="border-t border-gray-700/30 px-3 py-2 space-y-1.5">
 
+          {/* Language source picker — only shown when translation exists */}
+          {hasTranslation && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-600 text-[10px] w-9 flex-shrink-0">Read</span>
+              <div className="flex items-center gap-1 bg-gray-900/50 border border-gray-700/40 rounded-lg p-0.5">
+                <button
+                  onClick={() => setReadingSource('original')}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-all
+                    ${readingSource === 'original'
+                      ? 'bg-teal-700/60 text-teal-200'
+                      : 'text-gray-500 hover:text-gray-300'}`}
+                >
+                  Original
+                </button>
+                <button
+                  onClick={() => setReadingSource('translated')}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-all
+                    ${readingSource === 'translated'
+                      ? 'bg-teal-700/60 text-teal-200'
+                      : 'text-gray-500 hover:text-gray-300'}`}
+                >
+                  {translatedLang ?? 'Translated'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Voice */}
           <div className="flex items-center gap-1.5">
             <span className="text-gray-600 text-[10px] w-9 flex-shrink-0">Voice</span>
@@ -198,7 +245,7 @@ export default function AudioControls({ text, langCode }: AudioControlsProps) {
                 <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
               </div>
             ) : (
-              <span className="text-gray-400 text-[10px]">Google Translate · {langCode}</span>
+              <span className="text-gray-400 text-[10px]">Google Translate · {translatedLangCode}</span>
             )}
           </div>
 

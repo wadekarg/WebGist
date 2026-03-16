@@ -60,6 +60,7 @@ export interface HistoryItem {
   summary: string
   translatedSummary?: string
   translatedLang?: string
+  translatedLangCode?: string
   timestamp: number
 }
 
@@ -122,10 +123,12 @@ export interface SessionSummary {
   summary: string
   translatedSummary?: string
   translatedLang?: string
+  translatedLangCode?: string
 }
 
 export async function getSessionSummary(tabId: number): Promise<SessionSummary | null> {
   return new Promise((resolve) => {
+    // Keyed by tab ID so each tab has its own summary; session storage clears on browser close
     const key = `session_tab_${tabId}`
     try {
       chrome.storage.session.get([key], (result) => {
@@ -140,6 +143,7 @@ export async function getSessionSummary(tabId: number): Promise<SessionSummary |
 
 export async function saveSessionSummary(tabId: number, data: SessionSummary): Promise<void> {
   return new Promise((resolve) => {
+    // Same key scheme as getSessionSummary — one entry per tab
     const key = `session_tab_${tabId}`
     try {
       chrome.storage.session.set({ [key]: data }, () => { resolve() })
@@ -149,22 +153,3 @@ export async function saveSessionSummary(tabId: number, data: SessionSummary): P
   })
 }
 
-// --- Reader session ---
-
-export interface ReaderSession {
-  text: string
-  title: string
-  url: string
-  translation?: string
-  translatedLang?: string
-  translatedLangCode?: string  // BCP 47 code, e.g. 'es'
-}
-
-export async function getReaderSession(): Promise<ReaderSession | null> {
-  const data = await chrome.storage.session.get('wg_reader')
-  return (data.wg_reader as ReaderSession) ?? null
-}
-
-export async function saveReaderSession(data: ReaderSession): Promise<void> {
-  await chrome.storage.session.set({ wg_reader: data })
-}

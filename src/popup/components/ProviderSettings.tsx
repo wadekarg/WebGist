@@ -54,6 +54,7 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
     }
   }
 
+  // Direct links to each provider's API key console
   const apiKeyLinks: Record<string, string> = {
     gemini: 'https://aistudio.google.com/app/apikey',
     groq: 'https://console.groq.com/keys',

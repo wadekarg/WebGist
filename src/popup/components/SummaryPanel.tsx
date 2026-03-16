@@ -1,5 +1,5 @@
 import React from 'react'
-import { Sparkles, Zap, AlertCircle, Copy, CheckCheck, Bookmark, BookmarkCheck, Clock } from 'lucide-react'
+import { Sparkles, ScrollText, AlertCircle, Copy, CheckCheck, Bookmark, BookmarkCheck, Clock } from 'lucide-react'
 import { useState } from 'react'
 
 type Status = 'idle' | 'loading' | 'done' | 'error'
@@ -20,8 +20,9 @@ interface SummaryPanelProps {
   errorMessage: string
   hasApiKey: boolean
   isSaved: boolean
+  isExtracting?: boolean
   onSummarize: (mode: SummaryMode) => void
-  onQuickSummarize: (mode: SummaryMode) => void
+  onExtractPage: () => void
   onSave: () => void
 }
 
@@ -37,8 +38,9 @@ export default function SummaryPanel({
   errorMessage,
   hasApiKey,
   isSaved,
+  isExtracting = false,
   onSummarize,
-  onQuickSummarize,
+  onExtractPage,
   onSave,
 }: SummaryPanelProps) {
   const [copied, setCopied] = useState(false)
@@ -53,6 +55,7 @@ export default function SummaryPanel({
   }
 
   const isLoading = status === 'loading'
+  const isBusy = isLoading || isExtracting
   const isError = status === 'error'
   const hasSummary = status === 'done' && summary.length > 0
 
@@ -79,13 +82,13 @@ export default function SummaryPanel({
       <div className="flex gap-2">
         <button
           onClick={() => onSummarize(mode)}
-          disabled={isLoading || !hasApiKey}
+          disabled={isBusy || !hasApiKey}
           className={`
             flex items-center justify-center gap-2 flex-1 py-2.5 rounded-xl text-sm font-semibold
             transition-all duration-150
             ${isLoading
               ? 'bg-indigo-900/60 text-indigo-300 cursor-not-allowed'
-              : !hasApiKey
+              : isBusy || !hasApiKey
               ? 'bg-gray-700/60 text-gray-500 cursor-not-allowed'
               : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-lg shadow-violet-900/40'
             }
@@ -105,31 +108,42 @@ export default function SummaryPanel({
         </button>
 
         <button
-          onClick={() => onQuickSummarize(mode)}
-          disabled={isLoading}
-          title="Extractive summary — no AI or API key needed"
+          onClick={onExtractPage}
+          disabled={isBusy}
+          title="Extract full page text — no AI or API key needed"
           className={`
             flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold
             transition-all duration-150 flex-shrink-0
-            ${isLoading
+            ${isExtracting
+              ? 'bg-gray-700/40 text-gray-400 cursor-not-allowed'
+              : isBusy
               ? 'bg-gray-700/40 text-gray-600 cursor-not-allowed'
               : 'bg-gray-700/60 hover:bg-gray-600/60 text-gray-300 border border-gray-600/40'
             }
           `}
         >
-          <Zap size={14} />
-          Quick
+          {isExtracting ? (
+            <>
+              <span className="w-3.5 h-3.5 border-2 border-gray-500/30 border-t-gray-300 rounded-full animate-spin" />
+              Extracting...
+            </>
+          ) : (
+            <>
+              <ScrollText size={14} />
+              Full Page
+            </>
+          )}
         </button>
       </div>
 
       {/* No API key hint */}
       {!hasApiKey && (
         <p className="text-gray-600 text-[11px] text-center -mt-1">
-          No API key? Use <span className="text-gray-400">Quick</span> for instant summarization
+          No API key? Use <span className="text-gray-400">Full Page</span> to extract clean page text
         </p>
       )}
 
-      {/* Loading skeleton */}
+      {/* Loading skeleton — only for AI summary, not Full Page */}
       {isLoading && (
         <div className="flex flex-col gap-2 animate-pulse">
           <div className="h-3 bg-gray-800 rounded-lg w-full" />

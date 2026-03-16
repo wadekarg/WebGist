@@ -1,64 +1,204 @@
-// Content script: extracts visible page text, handles TTS, and provides voice list
+// Content script: extracts visible page text and provides the floating action button
 import { Readability } from '@mozilla/readability'
 
-// Semantic HTML tags + known ad/promo elements that are never part of the main article.
+// Guard against double-injection (e.g. scripting API re-inject on already-open tabs)
+declare global { interface Window { __wgLoaded?: boolean } }
+if (window.__wgLoaded) {
+  // Already running — skip re-initialisation
+} else {
+window.__wgLoaded = true
+
+// ---- Noise removal ----
+
 const SAFE_NOISE_TAGS = [
-  'script', 'style', 'noscript', 'iframe', 'svg', 'canvas', 'video',
-  'nav', 'header', 'footer', 'aside',
+  // Core non-content elements
+  'script', 'style', 'noscript', 'iframe', 'svg', 'canvas', 'video', 'audio',
+  'nav', 'header', 'footer', 'aside', 'form',
+
+  // Standard hidden attribute
+  '[hidden]',
+
+  // ARIA non-content roles
   '[role="navigation"]', '[role="banner"]', '[role="complementary"]',
-  '[role="contentinfo"]', '[role="search"]', '[aria-hidden="true"]',
-  // Ad / promo elements
+  '[role="contentinfo"]', '[role="search"]', '[role="dialog"]',
+  '[role="alertdialog"]', '[role="status"]', '[role="toolbar"]',
+  '[aria-hidden="true"]', '[aria-modal="true"]',
+
+  // Ads — generic
   'ins.adsbygoogle',
-  '[data-ad]', '[data-advertisement]', '[data-ad-unit]',
-  '[id^="div-gpt-ad"]', '[id^="google_ads"]',
+  '[data-ad]', '[data-advertisement]', '[data-ad-unit]', '[data-ad-slot]',
+  '[id^="div-gpt-ad"]', '[id^="google_ads"]', '[id^="google-ads"]',
+  '[class*="google-ad"]', '[class*="ad-container"]', '[class*="ad-banner"]',
+  '[class*="display-ad"]',
+
+  // Cookie / consent notices
+  '[id*="cookie"]',   '[class*="cookie"]',
+  '[id*="consent"]',  '[class*="consent"]',
+  '[id*="gdpr"]',     '[class*="gdpr"]',
+  '[id*="privacy-notice"]', '[class*="privacy-notice"]',
+  '[class*="cc-window"]', '[id*="onetrust"]', '[class*="onetrust"]',
+  '[id*="cookielaw"]', '[class*="cookielaw"]',
+
+  // Popups / modals / overlays
+  '[class*="modal"]',   '[id*="modal"]',
+  '[class*="popup"]',   '[id*="popup"]',
+  '[class*="overlay"]', '[class*="lightbox"]',
+  '[class*="drawer"]',  '[class*="offcanvas"]',
+
+  // Chat & support widgets
+  '[id*="intercom"]',  '[class*="intercom"]',
+  '[id*="crisp"]',     '[class*="crisp"]',
+  '[id*="drift"]',     '[class*="drift"]',
+  '[id*="zendesk"]',   '[class*="zendesk"]',
+  '[id*="hubspot"]',   '[class*="hs-"]',
+  '[id*="livechat"]',  '[class*="livechat"]',
+  '[id*="tawk"]',      '[class*="tawk"]',
+  '#launcher',
+
+  // Newsletter / subscribe / signup CTAs
+  '[class*="newsletter"]',
+  '[class*="subscribe-"]', '[id*="subscribe"]',
+  '[class*="email-capture"]',
+  '[class*="signup-form"]',
+
+  // Social sharing toolbars
+  '[class*="share-bar"]',   '[class*="sharebar"]',
+  '[class*="social-share"]', '[class*="social-links"]',
+  '[class*="addthis"]',     '[id*="addthis"]',
+  '[class*="shareaholic"]',
+
+  // Comment sections
+  '[id="comments"]',      '[id="disqus_thread"]',
+  '.comments',            '#comments',
+  '[class*="comment-section"]', '[class*="comments-section"]',
+  '[class*="comment-list"]',
+
+  // Related / recommended / "you may also like"
+  '[class*="related-"]',    '[class*="recommended-"]',
+  '[class*="more-stories"]', '[class*="you-might"]',
+  '[class*="also-like"]',   '[class*="suggested"]',
+
+  // Sticky/notification/announcement bars
+  '[class*="sticky-bar"]',       '[class*="notification-bar"]',
+  '[class*="announcement-bar"]', '[class*="top-bar"]',
+  '[class*="floating-bar"]',     '[class*="cookie-bar"]',
+
+  // Breadcrumbs & pagination
+  '[class*="breadcrumb"]', '[aria-label="breadcrumb"]',
+  '[class*="pagination"]', '[aria-label*="pagination"]',
+
+  // Author bios & tag clouds
+  '[class*="author-bio"]', '[class*="tag-cloud"]',
+  '[class*="tag-list"]',
+
+  // Datetime / publish-date elements
+  // <time> is machine-readable dates — never prose content
+  'time',
+  '[class*="timestamp"]',    '[id*="timestamp"]',
+  '[class*="post-date"]',    '[class*="pub-date"]',
+  '[class*="posted-date"]',  '[class*="article-date"]',
+  '[class*="entry-date"]',   '[class*="dateline"]',
+
+  // Post / entry meta blocks (date + author lines above/below articles)
+  '[class*="post-meta"]',    '[class*="entry-meta"]',
+  '[class*="article-meta"]', '[class*="story-meta"]',
+
+  // Author / user profile snippets (bio cards, member widgets)
+  '[class*="author-info"]',  '[class*="author-meta"]',
+  '[class*="author-card"]',  '[class*="author-box"]',
+  '[class*="user-info"]',    '[class*="user-meta"]',
+  '[class*="user-card"]',    '[class*="member-info"]',
+  '[class*="profile-info"]', '[class*="profile-meta"]',
+  '[class*="byline"]',
+
+  // Follower / engagement counts
+  '[class*="follower"]',     '[class*="follow-count"]',
+  '[class*="stat-count"]',   '[class*="-stats"]',
 ]
 
-// Well-known CMS/theme class names for the primary content block.
+// ---- Content selectors — ordered most-specific first ----
+
 const CONTENT_SELECTORS = [
+  // Semantic HTML
   'article', 'main', '[role="main"]', '[itemprop="articleBody"]',
+
+  // Platform-specific (high confidence)
+  '#mw-content-text .mw-parser-output',         // Wikipedia
+  '.gh-content',                                 // Ghost CMS
+  '.available-content',                          // Substack
+  '.meteredContent',                             // Medium (metered)
+  '#readme .markdown-body', '.markdown-body',    // GitHub README
+  '.s-prose',                                    // Stack Overflow
+  '.article-body-wrapper', '.blog-content-wrapper', // Dev.to / Hashnode
+  '.notion-page-content',                        // Notion exports
+
+  // Common CMS / WordPress / news
   '.post-content', '.entry-content', '.article-content', '.article-body',
   '.story-body', '.story-content', '.content-body', '.post-body', '.blog-content',
   '.post-control', '.post-inner', '.entry-body', '.td-post-content',
+  '.article__body', '.article__content', '.story__body',
+  '.RichTextArticleBody', '.article-text', '.article-page',
+  '.post__content', '.post__body',
+  '.wp-block-post-content',
+
+  // ID-based fallbacks
   '#article-body', '#story-body', '#content-body',
   '.main-content', '#main-content', '.page-content', '#page-content',
 ]
 
-// Elements whose closest ancestor is one of these tags are treated as noise
-// when scoring candidates from the live document.
+// Noise ancestor tags for density-scoring filter
 const NOISE_ANCESTORS = 'nav, header, footer, aside'
+
+// ---- Helpers ----
+
+function removeHiddenFromClone(root: Document): void {
+  // Remove elements styled invisible via inline style
+  root.querySelectorAll<HTMLElement>('[style]').forEach((el) => {
+    const s = el.style
+    if (
+      s.display === 'none' ||
+      s.visibility === 'hidden' ||
+      s.opacity === '0' ||
+      s.position === 'fixed' ||
+      s.position === 'sticky' ||
+      // Off-screen trick (common for hidden content)
+      (s.position === 'absolute' && (parseInt(s.left || '0') < -500 || parseInt(s.top || '0') < -500))
+    ) {
+      el.remove()
+    }
+  })
+}
+
+// ---- Main extractor ----
 
 function extractPageText(): string {
   // --- Tier 1: Readability ---
-  // Pre-clean the clone to remove ads/noise before Readability parses it.
   try {
     const docClone = document.cloneNode(true) as Document
     SAFE_NOISE_TAGS.forEach((sel) => {
       try { docClone.querySelectorAll(sel).forEach((el) => el.remove()) } catch {}
     })
-    const article = new Readability(docClone).parse()
+    removeHiddenFromClone(docClone)
+    const article = new Readability(docClone, { charThreshold: 200 }).parse()
     if (article?.textContent) {
       const text = article.textContent.trim()
-      if (text.length > 300) return cleanExtracted(text)
+      if (text.length > 200) return cleanExtracted(text)
     }
   } catch { /* fall through */ }
 
   // --- Tier 2a: well-known content selectors on the LIVE document ---
-  // innerText works correctly on live DOM elements (reflects visible rendered text).
   for (const sel of CONTENT_SELECTORS) {
     try {
       const el = document.querySelector(sel) as HTMLElement | null
       if (!el) continue
-      // Skip if the element itself is fixed/sticky (unlikely for content, but guard anyway)
       const pos = window.getComputedStyle(el).position
       if (pos === 'fixed' || pos === 'sticky') continue
       const text = el.innerText.trim()
-      if (text.length > 300) return cleanExtracted(text)
-    } catch { /* invalid selector, skip */ }
+      if (text.length > 200) return cleanExtracted(text)
+    } catch { /* invalid selector */ }
   }
 
   // --- Tier 2b: paragraph-density scoring on the LIVE document ---
-  // score = pCount × ln(wordCount) — higher means richer prose content.
-  // Skip elements inside nav/header/footer/aside AND fixed/sticky overlays (ads, banners).
   const candidates = Array.from(document.querySelectorAll('div, section, article, main'))
     .filter((el) => !el.closest(NOISE_ANCESTORS))
     .filter((el) => {
@@ -68,7 +208,7 @@ function extractPageText(): string {
     .map((el) => {
       const h      = el as HTMLElement
       const pCount = el.querySelectorAll('p, h2, h3, h4, li').length
-      const text   = h.innerText  // accurate on live DOM
+      const text   = h.innerText
       const words  = text.split(/\s+/).filter(Boolean).length
       const score  = pCount > 0 ? pCount * Math.log(words + 1) : 0
       return { el, text, score }
@@ -80,7 +220,6 @@ function extractPageText(): string {
 
   // --- Tier 3: minimal-clone fallback ---
   const clone = document.body.cloneNode(true) as HTMLElement
-  // Remove elements with inline position:fixed/sticky (floating banners set these inline)
   clone.querySelectorAll<HTMLElement>('[style]').forEach((el) => {
     if (el.style.position === 'fixed' || el.style.position === 'sticky') el.remove()
   })
@@ -90,67 +229,47 @@ function extractPageText(): string {
   return cleanExtracted(clone.textContent || '')
 }
 
+// Short single-token lines that are almost certainly nav/UI labels
+const UI_NOISE_RE = /^(share|tweet|follow|subscribe|sign up|log in|sign in|register|close|accept|decline|cookie|menu|search|home|back|next|prev|previous|more|load more|read more|show more|skip|cancel|ok|yes|no|reply|report|edit|delete|save|submit|send)$/i
+
+function isMetadataLine(line: string): boolean {
+  // "62/M/Nashville, TN" — age / gender / city pattern
+  if (/^\d{1,3}\/[A-Za-z]\//.test(line)) return true
+  // "38 followers" / "1.6k followers" / "230 following"
+  if (/^\d[\d.,]*[kKmM]?\s+(follower|following|subscriber|view|like)/i.test(line)) return true
+  // Standalone short date lines: "May 1, 2020" / "Aug 4, 2019 at 10:28 AM CDT"
+  if (line.length < 60 && /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}/i.test(line)) return true
+  // ISO / numeric dates alone: "2024-03-15" or "15/03/2024"
+  if (line.length < 30 && /^\d{1,4}[-/]\d{1,2}[-/]\d{2,4}$/.test(line)) return true
+  return false
+}
+
 function cleanExtracted(text: string): string {
-  const lines = text
-    .replace(/#[\w\p{L}\p{N}]+/gu, '')  // strip hashtags (ASCII and Unicode)
+  return text
+    .replace(/#[\w\p{L}\p{N}]+/gu, '')   // strip hashtags
     .replace(/[ \t]+/g, ' ')
     .split('\n')
     .map(l => l.trim())
-
-  return lines
+    .filter(l => {
+      if (l.length === 0) return true        // keep blank separators
+      if (l.length < 3)   return false       // drop lone chars
+      if (UI_NOISE_RE.test(l)) return false
+      if (isMetadataLine(l))   return false  // drop date/follower/age lines
+      return true
+    })
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
 
+// ---- Types ----
+
 interface PageData { text: string; title: string; url: string }
-interface VoiceInfo { name: string; lang: string; default: boolean }
 
-// TTS state — runs in page context where speechSynthesis works reliably
-let keepAliveTimer: ReturnType<typeof setInterval> | null = null
-
-function ttsSpeak(text: string, voiceName?: string) {
-  window.speechSynthesis.cancel()
-  if (keepAliveTimer) clearInterval(keepAliveTimer)
-
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.rate = 0.95
-  utterance.pitch = 1
-  utterance.volume = 1
-
-  if (voiceName) {
-    const voice = window.speechSynthesis.getVoices().find((v) => v.name === voiceName)
-    if (voice) utterance.voice = voice
-  }
-
-  utterance.onend = () => {
-    if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null }
-    chrome.runtime.sendMessage({ type: 'TTS_EVENT', event: 'end' }).catch(() => {})
-  }
-  utterance.onerror = () => {
-    if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null }
-    chrome.runtime.sendMessage({ type: 'TTS_EVENT', event: 'error' }).catch(() => {})
-  }
-
-  window.speechSynthesis.speak(utterance)
-
-  // Chrome bug workaround: speechSynthesis pauses after ~15s if not nudged
-  keepAliveTimer = setInterval(() => {
-    if (!window.speechSynthesis.speaking) {
-      clearInterval(keepAliveTimer!)
-      keepAliveTimer = null
-      return
-    }
-    window.speechSynthesis.pause()
-    window.speechSynthesis.resume()
-  }, 10000)
-}
+// ---- Message listener ----
 
 chrome.runtime.onMessage.addListener(
-  (message: { type: string; text?: string; voiceName?: string; target?: string }, _sender, sendResponse) => {
-
-    // Messages tagged for the offscreen document are broadcast to all listeners —
-    // ignore them here so the content script and offscreen don't both try to speak.
+  (message: { type: string; target?: string }, _sender, sendResponse) => {
     if (message.target === 'offscreen') return false
 
     if (message.type === 'GET_PAGE_TEXT') {
@@ -162,58 +281,7 @@ chrome.runtime.onMessage.addListener(
       return true
     }
 
-    if (message.type === 'GET_VOICES') {
-      let responded = false
-      const deliver = () => {
-        if (responded) return
-        responded = true
-        const voices = window.speechSynthesis.getVoices()
-        sendResponse(voices.map((v): VoiceInfo => ({ name: v.name, lang: v.lang, default: v.default })))
-      }
-      const voices = window.speechSynthesis.getVoices()
-      if (voices.length > 0) {
-        deliver()
-      } else {
-        window.speechSynthesis.addEventListener('voiceschanged', deliver, { once: true })
-        setTimeout(deliver, 2000) // timeout fallback — uses same guard to prevent double-response
-      }
-      return true
-    }
-
-    if (message.type === 'TTS_SPEAK' && message.text) {
-      ttsSpeak(message.text, message.voiceName)
-      sendResponse({ ok: true })
-      return true
-    }
-
-    if (message.type === 'TTS_PAUSE') {
-      window.speechSynthesis.pause()
-      if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null }
-      sendResponse({ ok: true })
-      return true
-    }
-
-    if (message.type === 'TTS_RESUME') {
-      window.speechSynthesis.resume()
-      keepAliveTimer = setInterval(() => {
-        if (!window.speechSynthesis.speaking) {
-          clearInterval(keepAliveTimer!); keepAliveTimer = null; return
-        }
-        window.speechSynthesis.pause()
-        window.speechSynthesis.resume()
-      }, 10000)
-      sendResponse({ ok: true })
-      return true
-    }
-
-    if (message.type === 'TTS_STOP') {
-      window.speechSynthesis.cancel()
-      if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null }
-      sendResponse({ ok: true })
-      return true
-    }
-
-    return true
+    return false
   }
 )
 
@@ -252,7 +320,6 @@ function injectFab() {
     'transition:box-shadow .15s',
   ].join(';')
 
-  // ---- Drag logic ----
   let dragging = false
   let moved = false
   let startX = 0, startY = 0
@@ -285,7 +352,6 @@ function injectFab() {
         }))
       } catch { /* ignore */ }
     }
-    // reset for next interaction
     dragging = false
   }
 
@@ -303,7 +369,7 @@ function injectFab() {
   })
 
   btn.addEventListener('click', () => {
-    if (moved) return   // was a drag, not a click
+    if (moved) return
     chrome.runtime.sendMessage({ type: 'OPEN_POPUP' })
   })
 
@@ -320,3 +386,5 @@ function injectFab() {
 }
 
 injectFab()
+
+} // end guard

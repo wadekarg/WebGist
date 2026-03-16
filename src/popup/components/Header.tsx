@@ -1,7 +1,7 @@
 import React from 'react'
-import { Settings, Zap, Clock, BookOpen } from 'lucide-react'
+import { Settings, Zap, Clock } from 'lucide-react'
 
-type ActiveTab = 'summary' | 'reader' | 'history' | 'settings'
+type ActiveTab = 'summary' | 'history' | 'settings'
 
 interface HeaderProps {
   activeTab: ActiveTab
@@ -28,7 +28,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       <div className="flex items-center bg-gray-800/60 border border-gray-700/40 rounded-lg p-0.5 gap-0.5">
         {([
           { id: 'summary', label: 'Summary', icon: null },
-          { id: 'reader',  label: 'Read',    icon: <BookOpen size={10} /> },
           { id: 'history', label: 'History', icon: <Clock size={10} /> },
         ] as const).map(({ id, label, icon }) => (
           <button

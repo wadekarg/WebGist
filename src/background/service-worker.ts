@@ -1,4 +1,4 @@
-// Background service worker — handles AI API calls and manages the offscreen TTS document
+// Background service worker — handles AI API calls, enhanced extraction, and offscreen TTS
 
 import { callProviderApi } from '../utils/providers'
 
@@ -17,6 +17,68 @@ interface AiRequestMessage {
 interface AiResponseSuccess { text: string }
 interface AiResponseError { error: string }
 type AiResponse = AiResponseSuccess | AiResponseError
+
+// ---- Enhanced content extraction ----
+// Tier 1: Trafilatura local server (best quality, needs `python webgist_server.py`)
+// Tier 2: Jina AI Reader (free, no key, server-side headless Chrome — optional, withJina flag)
+// Tier 3: Caller falls back to Readability content script
+
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), ms)
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function enhancedExtract(tabId: number, url: string, withJina: boolean): Promise<string> {
+  // ---- Tier 1: Get raw HTML, POST to Trafilatura server ----
+  let html = ''
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => document.documentElement.outerHTML,
+    })
+    html = (results[0]?.result as string) || ''
+  } catch { /* scripting blocked (PDF, chrome://, etc.) */ }
+
+  if (html) {
+    try {
+      const resp = await fetchWithTimeout(
+        'http://127.0.0.1:7777/extract',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ html, url }),
+        },
+        5000   // 5 s — if server not running, fail fast
+      )
+      if (resp.ok) {
+        const data = await resp.json() as { text?: string }
+        if (data.text?.trim()) return data.text.trim()
+      }
+    } catch { /* server not running */ }
+  }
+
+  // ---- Tier 2: Jina AI Reader (only for Full Page mode) ----
+  if (withJina && url) {
+    try {
+      const resp = await fetchWithTimeout(
+        `https://r.jina.ai/${url}`,
+        { headers: { 'X-Return-Format': 'text' } },
+        20000   // up to 20 s for server-side render
+      )
+      if (resp.ok) {
+        const text = await resp.text()
+        if (text.trim()) return text.trim()
+      }
+    } catch { /* Jina timed out or unavailable */ }
+  }
+
+  return ''  // Signal caller to use Readability fallback
+}
 
 // ---- Offscreen document management ----
 
@@ -50,9 +112,8 @@ chrome.runtime.onMessage.addListener(
   (
     message: AiRequestMessage | { type: string; [key: string]: unknown },
     _sender: chrome.runtime.MessageSender,
-    sendResponse: (response: AiResponse | { ok: boolean } | unknown[]) => void
+    sendResponse: (response: AiResponse | { ok: boolean } | { text: string } | unknown[]) => void
   ) => {
-    // Ignore messages targeted at offscreen (they loop back through runtime)
     if ((message as { target?: string }).target === 'offscreen') return false
 
     if (message.type === 'AI_REQUEST') {
@@ -63,6 +124,14 @@ chrome.runtime.onMessage.addListener(
           const errorMsg = err instanceof Error ? err.message : 'Unknown error occurred'
           sendResponse({ error: errorMsg })
         })
+      return true
+    }
+
+    if (message.type === 'ENHANCED_EXTRACT') {
+      const { tabId, url, withJina } = message as { type: string; tabId: number; url: string; withJina?: boolean }
+      enhancedExtract(tabId, url, withJina ?? false)
+        .then((text) => sendResponse({ text }))
+        .catch(() => sendResponse({ text: '' }))
       return true
     }
 
@@ -82,8 +151,6 @@ chrome.runtime.onMessage.addListener(
     }
 
     if (message.type === 'OPEN_POPUP') {
-      // chrome.action.openPopup() requires a windowId in MV3 service workers —
-      // without it the call silently fails. Query the active tab first to get windowId.
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const windowId = tabs[0]?.windowId
         if (windowId) {
@@ -98,5 +165,5 @@ chrome.runtime.onMessage.addListener(
 )
 
 chrome.runtime.onInstalled.addListener(() => {
-  // Intentionally empty — no setup needed on install/update
+  // Intentionally empty
 })

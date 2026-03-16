@@ -97,6 +97,7 @@ export default function TranslationPanel({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
+  // Match against both the English name and the native script (e.g. "中文", "Español")
   const filtered = search.trim()
     ? LANGUAGES.filter((l) =>
         l.name.toLowerCase().includes(search.toLowerCase()) ||

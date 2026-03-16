@@ -18,7 +18,7 @@ export const PROVIDERS: Provider[] = [
     id: 'groq',
     name: 'Groq',
     freeNote: 'Llama 3.3 70B — 30 RPM, very fast',
-    models: ['llama-3.3-70b-versatile', 'mixtral-8x7b-32768'],
+    models: ['llama-3.3-70b-versatile'],
     defaultModel: 'llama-3.3-70b-versatile',
   },
   {
@@ -72,6 +72,9 @@ interface ApiRequestPayload {
   prompt: string
 }
 
+// Dispatch an AI completion request to the chosen provider.
+// Each provider has a different API shape; all return the assistant's text content.
+// max_tokens: 1024 is sufficient for all summary modes (6-8 points ≈ 300-600 tokens).
 export async function callProviderApi(payload: ApiRequestPayload): Promise<string> {
   const { provider, model, apiKey, prompt } = payload
 
@@ -83,6 +86,7 @@ export async function callProviderApi(payload: ApiRequestPayload): Promise<strin
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 1024 },
         }),
       })
       if (!res.ok) {
@@ -103,6 +107,7 @@ export async function callProviderApi(payload: ApiRequestPayload): Promise<strin
         body: JSON.stringify({
           model,
           messages: [{ role: 'user', content: prompt }],
+          max_tokens: 1024,
         }),
       })
       if (!res.ok) {
@@ -123,6 +128,7 @@ export async function callProviderApi(payload: ApiRequestPayload): Promise<strin
         body: JSON.stringify({
           model,
           messages: [{ role: 'user', content: prompt }],
+          max_tokens: 1024,
         }),
       })
       if (!res.ok) {
@@ -143,6 +149,7 @@ export async function callProviderApi(payload: ApiRequestPayload): Promise<strin
         body: JSON.stringify({
           model,
           messages: [{ role: 'user', content: prompt }],
+          max_tokens: 1024,
         }),
       })
       if (!res.ok) {
@@ -159,12 +166,14 @@ export async function callProviderApi(payload: ApiRequestPayload): Promise<strin
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
+          // OpenRouter requires these headers to identify the calling app
           'HTTP-Referer': 'https://github.com/webgist',
           'X-Title': 'WebGist',
         },
         body: JSON.stringify({
           model,
           messages: [{ role: 'user', content: prompt }],
+          max_tokens: 1024,
         }),
       })
       if (!res.ok) {
@@ -207,6 +216,7 @@ export async function callProviderApi(payload: ApiRequestPayload): Promise<strin
         body: JSON.stringify({
           model,
           messages: [{ role: 'user', content: prompt }],
+          max_tokens: 1024,
         }),
       })
       if (!res.ok) {

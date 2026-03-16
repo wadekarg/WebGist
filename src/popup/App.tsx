@@ -6,16 +6,13 @@ import TranslationPanel from './components/TranslationPanel'
 import AudioControls from './components/AudioControls'
 import ExportPanel from './components/ExportPanel'
 import HistoryPanel from './components/HistoryPanel'
-import ReaderPanel from './components/ReaderPanel'
 import {
   getSettings, Settings,
   getHistory, saveToHistory, HistoryItem,
   getSessionSummary, saveSessionSummary, SessionSummary,
-  getReaderSession, saveReaderSession, ReaderSession,
 } from '../utils/storage'
 import { getProviderById } from '../utils/providers'
 import { googleTranslate } from '../utils/googleTranslate'
-import { extractiveSummary } from '../utils/extractiveSummary'
 import { type SummaryMode } from './components/SummaryPanel'
 
 const SUMMARY_PROMPTS: Record<SummaryMode, string> = {
@@ -27,8 +24,7 @@ const SUMMARY_PROMPTS: Record<SummaryMode, string> = {
 }
 
 type Status = 'idle' | 'loading' | 'done' | 'error'
-type ReaderStatus = 'idle' | 'extracting' | 'ready' | 'error'
-type ActiveTab = 'summary' | 'reader' | 'history' | 'settings'
+type ActiveTab = 'summary' | 'history' | 'settings'
 
 // Strip markdown formatting from AI responses so asterisks aren't read aloud
 function cleanAiText(text: string): string {
@@ -69,24 +65,12 @@ export default function App() {
   const [status, setStatus] = useState<Status>('idle')
   const [errorMessage, setErrorMessage] = useState('')
 
+  const [isExtracting, setIsExtracting] = useState(false)
   const [isTranslating, setIsTranslating] = useState(false)
   const [translateError, setTranslateError] = useState('')
 
   const [isSaved, setIsSaved] = useState(false)
   const [currentTabId, setCurrentTabId] = useState<number | null>(null)
-
-  // Reader mode state
-  const [readerStatus, setReaderStatus] = useState<ReaderStatus>('idle')
-  const [readerErrorMsg, setReaderErrorMsg] = useState('')
-  const [readerText, setReaderText] = useState('')
-  const [readerTitle, setReaderTitle] = useState('')
-  const [readerUrl, setReaderUrl] = useState('')
-  const [readerTranslation, setReaderTranslation] = useState('')
-  const [readerTranslatedLang, setReaderTranslatedLang] = useState('')
-  const [readerTranslatedLangCode, setReaderTranslatedLangCode] = useState('')
-  const [isTranslatingReader, setIsTranslatingReader] = useState(false)
-  const [readerTranslateProgress, setReaderTranslateProgress] = useState(0)
-  const [readerTranslateError, setReaderTranslateError] = useState('')
 
   // Load settings and restore session summary on mount
   useEffect(() => {
@@ -104,22 +88,12 @@ export default function App() {
         setSummary(session.summary)
         if (session.translatedSummary) setTranslatedSummary(session.translatedSummary)
         if (session.translatedLang) setTranslatedLang(session.translatedLang)
+        if (session.translatedLangCode) setTranslatedLangCode(session.translatedLangCode)
         setStatus('done')
 
         // Check if this URL is already in history
         const history = await getHistory()
         setIsSaved(history.some((h) => h.url === session.url))
-      }
-
-      const readerSess = await getReaderSession()
-      if (readerSess?.text) {
-        setReaderText(readerSess.text)
-        setReaderTitle(readerSess.title)
-        setReaderUrl(readerSess.url)
-        if (readerSess.translation) setReaderTranslation(readerSess.translation)
-        if (readerSess.translatedLang) setReaderTranslatedLang(readerSess.translatedLang)
-        if (readerSess.translatedLangCode) setReaderTranslatedLangCode(readerSess.translatedLangCode)
-        setReaderStatus('ready')
       }
     })
   }, [])
@@ -162,7 +136,9 @@ export default function App() {
     [settings]
   )
 
-  const getPageText = useCallback((): Promise<PageData> => {
+  // withJina=true: Full Page mode — tries Trafilatura → Jina → Readability
+  // withJina=false: AI Summary — tries Trafilatura → Readability (skip slow Jina)
+  const getPageText = useCallback((withJina = false): Promise<PageData> => {
     return new Promise((resolve, reject) => {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (chrome.runtime.lastError) {
@@ -174,72 +150,43 @@ export default function App() {
           reject(new Error('No active tab found'))
           return
         }
-
         const tabId = tab.id
+        const url   = tab.url   || ''
+        const title = tab.title || ''
 
-        chrome.tabs.sendMessage(
-          tabId,
-          { type: 'GET_PAGE_TEXT' },
-          (response: PageData | undefined) => {
-            if (!chrome.runtime.lastError && response) {
-              resolve(response)
+        // --- Try enhanced extraction (Trafilatura → optionally Jina) ---
+        chrome.runtime.sendMessage(
+          { type: 'ENHANCED_EXTRACT', tabId, url, withJina },
+          (enhanced: { text: string } | undefined) => {
+            if (!chrome.runtime.lastError && enhanced?.text?.trim()) {
+              resolve({ text: enhanced.text, title, url })
               return
             }
 
-            // Content script not loaded — inject inline via scripting API
-            chrome.scripting.executeScript(
-              {
-                target: { tabId },
-                func: (): { text: string; title: string; url: string } => {
-                  const CONTENT = [
-                    'article','main','[role="main"]','[itemprop="articleBody"]',
-                    '.post-content','.entry-content','.article-content','.article-body',
-                    '.story-body','.story-content','.content-body','.post-body','.blog-content',
-                    '.post-control','.post-inner','.entry-body','.td-post-content',
-                    '#article-body','#story-body','#content-body',
-                    '.main-content','#main-content','.page-content','#page-content',
-                  ]
-                  const SAFE_TAGS = ['script','style','noscript','iframe','svg','canvas','video','nav','header','footer','aside','[role="navigation"]','[role="banner"]','[role="complementary"]','[role="contentinfo"]','[role="search"]','[aria-hidden="true"]']
-                  const clean = (t: string) => t.replace(/#[\w\u0080-\uFFFF]+/g,'').replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').replace(/^\s+|\s+$/gm,'').trim()
-                  // Try content selectors on live document (innerText works correctly)
-                  for (const sel of CONTENT) {
-                    try {
-                      const el = document.querySelector(sel) as HTMLElement | null
-                      if (!el) continue
-                      const t = el.innerText.trim()
-                      if (t.length > 300) return { text: clean(t), title: document.title || '', url: window.location.href }
-                    } catch { /* skip */ }
+            // --- Fallback: Readability content script ---
+            const useReadability = () => {
+              chrome.tabs.sendMessage(tabId, { type: 'GET_PAGE_TEXT' }, (r: PageData | undefined) => {
+                if (!chrome.runtime.lastError && r) { resolve(r); return }
+
+                // Content script not running — inject it and retry once
+                chrome.scripting.executeScript(
+                  { target: { tabId }, files: ['content/index.js'] },
+                  () => {
+                    if (chrome.runtime.lastError) {
+                      reject(new Error(`Could not extract page content: ${chrome.runtime.lastError.message}`))
+                      return
+                    }
+                    setTimeout(() => {
+                      chrome.tabs.sendMessage(tabId, { type: 'GET_PAGE_TEXT' }, (r2: PageData | undefined) => {
+                        if (!chrome.runtime.lastError && r2) resolve(r2)
+                        else reject(new Error('Could not extract page content'))
+                      })
+                    }, 100)
                   }
-                  // Density scoring on live document (innerText accurate, skip noise ancestors)
-                  const best = Array.from(document.querySelectorAll('div,section,article,main'))
-                    .filter(el => !el.closest('nav,header,footer,aside'))
-                    .map(el => { const h=el as HTMLElement; const p=el.querySelectorAll('p,h2,h3,h4,li').length; const t=h.innerText; const w=t.split(/\s+/).filter(Boolean).length; return {t,score:p>0?p*Math.log(w+1):0} })
-                    .filter(c=>c.score>2&&c.t.trim().length>200).sort((a,b)=>b.score-a.score)[0]
-                  if (best) return { text: clean(best.t), title: document.title || '', url: window.location.href }
-                  // Fallback: minimal tag-only noise removal
-                  const clone = document.body.cloneNode(true) as HTMLElement
-                  SAFE_TAGS.forEach(sel => { try { clone.querySelectorAll(sel).forEach(el => el.remove()) } catch {} })
-                  return { text: clean(clone.textContent||''), title: document.title || '', url: window.location.href }
-                },
-              },
-              (results) => {
-                if (chrome.runtime.lastError) {
-                  reject(new Error(`Could not extract page content: ${chrome.runtime.lastError.message}`))
-                  return
-                }
-                const result = results?.[0]?.result
-                if (
-                  !result ||
-                  typeof (result as PageData).text !== 'string' ||
-                  typeof (result as PageData).title !== 'string' ||
-                  typeof (result as PageData).url !== 'string'
-                ) {
-                  reject(new Error('No result from page extraction'))
-                  return
-                }
-                resolve(result as PageData)
-              }
-            )
+                )
+              })
+            }
+            useReadability()
           }
         )
       })
@@ -264,7 +211,7 @@ export default function App() {
     setIsSaved(false)
 
     try {
-      const data = await getPageText()
+      const data = await getPageText(false)  // no Jina — keep AI summary fast
       setPageData(data)
 
       if (!data.text.trim()) {
@@ -302,33 +249,35 @@ ${data.text.slice(0, 15000)}`
     }
   }
 
-  async function handleQuickSummarize(mode: SummaryMode = 'keypoints') {
-    setStatus('loading')
+  async function handleExtractPage() {
+    setIsExtracting(true)
     setErrorMessage('')
     setSummary('')
     setTranslatedSummary('')
     setTranslatedLang('')
     setTranslatedLangCode('')
     setIsSaved(false)
+    setStatus('idle')
 
     try {
-      const data = await getPageText()
+      const data = await getPageText(true)  // use Jina for Full Page (best quality)
       setPageData(data)
 
       if (!data.text.trim()) {
         throw new Error('Could not extract text from this page.')
       }
 
-      const result = extractiveSummary(data.text, 8, mode)
-      setSummary(result)
+      setSummary(data.text)
       setStatus('done')
-      await persistSession({ url: data.url, title: data.title, summary: result })
+      await persistSession({ url: data.url, title: data.title, summary: data.text })
       const history = await getHistory()
       setIsSaved(history.some((h) => h.url === data.url))
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'An unexpected error occurred'
       setErrorMessage(msg)
       setStatus('error')
+    } finally {
+      setIsExtracting(false)
     }
   }
 
@@ -353,6 +302,7 @@ ${data.text.slice(0, 15000)}`
         summary,
         translatedSummary: trimmed,
         translatedLang: langName,
+        translatedLangCode: langCode,
       })
 
       // Update history entry if already saved
@@ -363,6 +313,7 @@ ${data.text.slice(0, 15000)}`
           summary,
           translatedSummary: trimmed,
           translatedLang: langName,
+          translatedLangCode: langCode,
         })
       }
     } catch (err) {
@@ -383,51 +334,9 @@ ${data.text.slice(0, 15000)}`
       summary,
       translatedSummary: translatedSummary || undefined,
       translatedLang: translatedLang || undefined,
+      translatedLangCode: translatedLangCode || undefined,
     })
     setIsSaved(true)
-  }
-
-  async function handleReadPage() {
-    setReaderStatus('extracting')
-    setReaderErrorMsg('')
-    setReaderTranslation('')
-    setReaderTranslatedLang('')
-    setReaderTranslatedLangCode('')
-    try {
-      const data = await getPageText()
-      if (!data.text.trim()) throw new Error('Could not extract text from this page.')
-      setReaderTitle(data.title)
-      setReaderUrl(data.url)
-      setReaderText(data.text)
-      setReaderStatus('ready')
-      await saveReaderSession({ text: data.text, title: data.title, url: data.url })
-    } catch (err) {
-      setReaderErrorMsg(err instanceof Error ? err.message : 'Failed to extract page')
-      setReaderStatus('error')
-    }
-  }
-
-  async function handleTranslateReaderText(langCode: string, langName: string) {
-    if (!readerText) return
-    setIsTranslatingReader(true)
-    setReaderTranslateError('')
-    setReaderTranslation('')
-    setReaderTranslatedLang(langName)
-    setReaderTranslatedLangCode(langCode)
-    setReaderTranslateProgress(0)
-
-    try {
-      const result = await googleTranslate(readerText, langCode, setReaderTranslateProgress)
-      setReaderTranslation(result)
-      await saveReaderSession({ text: readerText, title: readerTitle, url: readerUrl, translation: result, translatedLang: langName, translatedLangCode: langCode })
-    } catch (err) {
-      setReaderTranslateError(err instanceof Error ? err.message : 'Translation failed')
-      setReaderTranslatedLang('')
-      setReaderTranslatedLangCode('')
-    } finally {
-      setIsTranslatingReader(false)
-      setReaderTranslateProgress(0)
-    }
   }
 
   function handleLoadFromHistory(item: HistoryItem) {
@@ -435,6 +344,7 @@ ${data.text.slice(0, 15000)}`
     setSummary(item.summary)
     setTranslatedSummary(item.translatedSummary ?? '')
     setTranslatedLang(item.translatedLang ?? '')
+    setTranslatedLangCode(item.translatedLangCode ?? '')
     setStatus('done')
     setIsSaved(true)
     setActiveTab('summary')
@@ -461,26 +371,6 @@ ${data.text.slice(0, 15000)}`
         <HistoryPanel onLoadSummary={handleLoadFromHistory} />
       )}
 
-      {/* Reader */}
-      {activeTab === 'reader' && (
-        <ReaderPanel
-          status={readerStatus}
-          errorMsg={readerErrorMsg}
-          text={readerText}
-          title={readerTitle}
-          url={readerUrl}
-          translation={readerTranslation}
-          translatedLang={readerTranslatedLang}
-          translatedLangCode={readerTranslatedLangCode}
-          isTranslating={isTranslatingReader}
-          translateProgress={readerTranslateProgress}
-          translateError={readerTranslateError}
-          onReadPage={handleReadPage}
-          onTextChange={setReaderText}
-          onTranslate={handleTranslateReaderText}
-        />
-      )}
-
       {/* Summary view */}
       {activeTab === 'summary' && (
         <>
@@ -502,8 +392,9 @@ ${data.text.slice(0, 15000)}`
             errorMessage={errorMessage}
             hasApiKey={hasApiKey}
             isSaved={isSaved}
+            isExtracting={isExtracting}
             onSummarize={(mode) => handleSummarize(mode)}
-            onQuickSummarize={(mode) => handleQuickSummarize(mode)}
+            onExtractPage={handleExtractPage}
             onSave={handleSaveToHistory}
           />
 
@@ -517,11 +408,13 @@ ${data.text.slice(0, 15000)}`
             />
           )}
 
-          {/* Read Aloud — reads translated text if available, otherwise original summary */}
+          {/* Read Aloud — reads whatever is currently displayed in the summary box */}
           {hasSummary && (
             <AudioControls
-              text={translatedSummary || summary}
-              langCode={translatedSummary && translatedLangCode ? translatedLangCode : undefined}
+              originalText={summary}
+              translatedText={translatedSummary || undefined}
+              translatedLang={translatedLang || undefined}
+              translatedLangCode={translatedLangCode || undefined}
             />
           )}
 
@@ -546,7 +439,7 @@ ${data.text.slice(0, 15000)}`
           {status === 'idle' && hasApiKey && (
             <div className="px-4 pb-4 pt-0 text-center">
               <div className="text-gray-600 text-xs">
-                Navigate to any webpage and click "Summarize This Page"
+                Navigate to any webpage and click "AI Summary"
               </div>
             </div>
           )}

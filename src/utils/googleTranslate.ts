@@ -1,5 +1,9 @@
+// Google Translate's unofficial endpoint caps requests at ~5000 chars;
+// 4000 gives a safe margin while keeping chunk count low for typical summaries.
 const MAX_CHUNK = 4000
 
+// Split on paragraph boundaries so sentences are never cut mid-way.
+// Sequential (not parallel) to avoid hitting Google's rate limit on rapid-fire requests.
 function splitText(text: string): string[] {
   if (text.length <= MAX_CHUNK) return [text]
 
