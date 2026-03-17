@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "WebGist",
   "version": "1.0.0",
-  "description": "AI-powered webpage summarizer — read aloud, translate, export PDF",
+  "description": "Summarize any webpage with AI. Translate to 84 languages, read aloud, export PDF. 7 free AI providers — no sign-up needed.",
   "action": {
     "default_popup": "popup/index.html",
     "default_icon": {
@@ -22,7 +22,7 @@
       "run_at": "document_idle"
     }
   ],
-  "permissions": ["activeTab", "scripting", "storage", "offscreen", "downloads", "tabs"],
+  "permissions": ["activeTab", "scripting", "storage", "offscreen", "tabs"],
   "host_permissions": ["<all_urls>", "http://127.0.0.1:7777/*"],
   "icons": {
     "16": "icons/icon16.png",

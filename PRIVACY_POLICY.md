@@ -112,7 +112,6 @@ WebGist requests the following Chrome permissions:
 | `scripting` | Inject the content extraction script into the active tab |
 | `storage` | Save settings, history, and session cache locally |
 | `offscreen` | Run text-to-speech in a background context so audio continues when the popup closes |
-| `downloads` | (Reserved for future use; not actively used) |
 | `tabs` | Read the current tab's URL and title for the summary and history |
 
 **Host permissions** (`<all_urls>`, `http://127.0.0.1:7777/*`) are required to:
