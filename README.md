@@ -1,5 +1,7 @@
 # WebGist — AI Webpage Summarizer for Chrome
 
+[![Hits](https://hits.sh/github.com/wadekarg/WebGist.svg?style=for-the-badge&label=Hits&color=4f46e5&labelColor=1e293b)](https://hits.sh/github.com/wadekarg/WebGist/)
+
 WebGist is a Chrome extension that summarizes any webpage using your choice of AI provider. It also translates summaries into 84 languages, reads them aloud with text-to-speech, exports them to PDF, and saves them to a searchable history — all without sending your data to any third-party service beyond the AI provider you choose.
 
 ---
