@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Eye, EyeOff, Save, CheckCircle, ChevronDown, Check } from 'lucide-react'
+import { Eye, EyeOff, Save, CheckCircle, Check } from 'lucide-react'
 import { PROVIDERS } from '../../utils/providers'
 import { Settings, saveSettings } from '../../utils/storage'
 
@@ -47,16 +47,20 @@ function Dropdown({ value, options, onChange }: DropdownProps) {
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {selected?.label ?? value}
         </span>
-        <ChevronDown
-          size={14}
+        <svg
+          width="14" height="14" viewBox="0 0 24 24"
           style={{
             flexShrink: 0,
             marginLeft: '8px',
-            color: '#9ca3af',
             transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
             transition: 'transform 0.15s',
           }}
-        />
+        >
+          <polyline
+            points="6 9 12 15 18 9"
+            style={{ fill: 'none', stroke: '#9ca3af', strokeWidth: '2.5', strokeLinecap: 'round', strokeLinejoin: 'round' }}
+          />
+        </svg>
       </button>
 
       {/* Dropdown list */}
