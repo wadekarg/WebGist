@@ -14,7 +14,7 @@ export default defineConfig({
       manifest: 'manifest.json',
       disableAutoLaunch: true,
       skipManifestValidation: true,
-      additionalInputs: ['offscreen/tts.html', 'export/index.html'],
+      additionalInputs: ['popup/index.html', 'offscreen/tts.html', 'export/index.html'],
     }),
   ],
   build: {
