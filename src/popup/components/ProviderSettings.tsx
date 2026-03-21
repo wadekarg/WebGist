@@ -1,7 +1,117 @@
-import React, { useState } from 'react'
-import { Eye, EyeOff, Save, CheckCircle } from 'lucide-react'
+import React, { useState, useRef, useEffect } from 'react'
+import { Eye, EyeOff, Save, CheckCircle, ChevronDown, Check } from 'lucide-react'
 import { PROVIDERS } from '../../utils/providers'
 import { Settings, saveSettings } from '../../utils/storage'
+
+interface DropdownProps {
+  value: string
+  options: { value: string; label: string }[]
+  onChange: (value: string) => void
+}
+
+function Dropdown({ value, options, onChange }: DropdownProps) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const selected = options.find((o) => o.value === value)
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [open])
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      {/* Trigger button */}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: '#1f2937',
+          border: open ? '1px solid #6366f1' : '1px solid #4b5563',
+          borderRadius: '8px',
+          padding: '8px 12px',
+          color: 'white',
+          fontSize: '13px',
+          cursor: 'pointer',
+          boxShadow: open ? '0 0 0 1px #6366f1' : 'none',
+          outline: 'none',
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {selected?.label ?? value}
+        </span>
+        <ChevronDown
+          size={14}
+          style={{
+            flexShrink: 0,
+            marginLeft: '8px',
+            color: '#9ca3af',
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.15s',
+          }}
+        />
+      </button>
+
+      {/* Dropdown list */}
+      {open && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            right: 0,
+            background: '#1f2937',
+            border: '1px solid #4b5563',
+            borderRadius: '8px',
+            zIndex: 50,
+            maxHeight: '180px',
+            overflowY: 'auto',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          }}
+        >
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setOpen(false) }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 12px',
+                background: opt.value === value ? '#312e81' : 'transparent',
+                border: 'none',
+                color: opt.value === value ? 'white' : '#d1d5db',
+                fontSize: '13px',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+              onMouseEnter={(e) => {
+                if (opt.value !== value) (e.currentTarget as HTMLButtonElement).style.background = '#374151'
+              }}
+              onMouseLeave={(e) => {
+                if (opt.value !== value) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+              }}
+            >
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {opt.label}
+              </span>
+              {opt.value === value && <Check size={13} style={{ flexShrink: 0, color: '#818cf8' }} />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface ProviderSettingsProps {
   settings: Settings
@@ -15,22 +125,17 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
   const [saveError, setSaveError] = useState('')
 
   const selectedProvider = PROVIDERS.find((p) => p.id === settings.providerId) ?? PROVIDERS[0]
-
   const currentApiKey = settings.apiKeys[settings.providerId] ?? ''
 
-  function handleProviderChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const provider = PROVIDERS.find((p) => p.id === e.target.value)
+  function handleProviderChange(value: string) {
+    const provider = PROVIDERS.find((p) => p.id === value)
     if (provider) {
-      onSettingsChange({
-        ...settings,
-        providerId: provider.id,
-        model: provider.defaultModel,
-      })
+      onSettingsChange({ ...settings, providerId: provider.id, model: provider.defaultModel })
     }
   }
 
-  function handleModelChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    onSettingsChange({ ...settings, model: e.target.value })
+  function handleModelChange(value: string) {
+    onSettingsChange({ ...settings, model: value })
   }
 
   function handleApiKeyChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -54,7 +159,6 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
     }
   }
 
-  // Direct links to each provider's API key console
   const apiKeyLinks: Record<string, string> = {
     gemini: 'https://aistudio.google.com/app/apikey',
     groq: 'https://console.groq.com/keys',
@@ -72,44 +176,27 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
         <p className="text-gray-400 text-xs">Configure your AI provider and API key</p>
       </div>
 
-      {/* Provider Select */}
+      {/* Provider */}
       <div className="flex flex-col gap-1.5">
         <label className="text-gray-300 text-xs font-medium">Provider</label>
-        <select
+        <Dropdown
           value={settings.providerId}
+          options={PROVIDERS.map((p) => ({ value: p.id, label: p.name }))}
           onChange={handleProviderChange}
-          className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm
-                     focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
-                     cursor-pointer"
-        >
-          {PROVIDERS.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-        {/* Free tier note */}
+        />
         <p className="text-indigo-400 text-[11px] bg-indigo-950/40 border border-indigo-800/30 rounded-md px-2 py-1.5">
           {selectedProvider.freeNote}
         </p>
       </div>
 
-      {/* Model Select */}
+      {/* Model */}
       <div className="flex flex-col gap-1.5">
         <label className="text-gray-300 text-xs font-medium">Model</label>
-        <select
+        <Dropdown
           value={settings.model}
+          options={selectedProvider.models.map((m) => ({ value: m, label: m }))}
           onChange={handleModelChange}
-          className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm
-                     focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
-                     cursor-pointer"
-        >
-          {selectedProvider.models.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
+        />
       </div>
 
       {/* API Key */}
@@ -146,9 +233,7 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
         </p>
       </div>
 
-      {saveError && (
-        <p className="text-red-400 text-xs px-1">{saveError}</p>
-      )}
+      {saveError && <p className="text-red-400 text-xs px-1">{saveError}</p>}
 
       {/* Save button */}
       <button
@@ -166,20 +251,11 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
         `}
       >
         {saved ? (
-          <>
-            <CheckCircle size={15} />
-            Saved!
-          </>
+          <><CheckCircle size={15} />Saved!</>
         ) : saving ? (
-          <>
-            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            Saving...
-          </>
+          <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving...</>
         ) : (
-          <>
-            <Save size={15} />
-            Save Settings
-          </>
+          <><Save size={15} />Save Settings</>
         )}
       </button>
     </div>
