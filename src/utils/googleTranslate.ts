@@ -41,6 +41,9 @@ export async function googleTranslate(
   targetCode: string,
   onProgress?: (pct: number) => void
 ): Promise<string> {
+  if (!/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(targetCode)) {
+    throw new Error(`Invalid language code: ${targetCode}`)
+  }
   const chunks = splitText(text)
   const results: string[] = []
 

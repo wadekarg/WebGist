@@ -39,11 +39,11 @@ export function exportSummaryAsPdf(options: PdfExportOptions): void {
                    Arial, sans-serif;
       color: #0f172a; margin: 0; padding: 0; line-height: 1.6;
     }
-    .header { background: #4f46e5; color: white; padding: 12px 36px; font-size: 14px; font-weight: 700; }
+    .header { background: #3b82f6; color: white; padding: 12px 36px; font-size: 14px; font-weight: 700; }
     .content { padding: 28px 36px; }
     .date { color: #64748b; font-size: 11px; margin-bottom: 10px; }
     h1 { font-size: 22px; font-weight: 700; margin: 0 0 5px; color: #0f172a; }
-    .url { color: #4f46e5; font-size: 11px; margin-bottom: 22px; word-break: break-all; }
+    .url { color: #3b82f6; font-size: 11px; margin-bottom: 22px; word-break: break-all; }
     hr { border: none; border-top: 1px solid #e2e8f0; margin: 18px 0; }
     h2 { font-size: 14px; font-weight: 700; color: #1e293b; margin: 0 0 12px; }
     .text { font-size: 12px; color: #334155; white-space: pre-wrap; line-height: 1.75; }

@@ -134,7 +134,29 @@ export default function TranslationPanel({
 
   function handleCopy() {
     if (!translatedSummary) return
-    navigator.clipboard.writeText(translatedSummary).then(() => {
+    const doCopy = (text: string): Promise<void> => {
+      if (navigator.clipboard?.writeText) {
+        return navigator.clipboard.writeText(text).catch(() => {
+          const ta = document.createElement('textarea')
+          ta.value = text
+          ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0'
+          document.body.appendChild(ta)
+          ta.select()
+          document.execCommand('copy')
+          document.body.removeChild(ta)
+          return Promise.resolve()
+        })
+      }
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      return Promise.resolve()
+    }
+    doCopy(translatedSummary).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
@@ -223,13 +245,18 @@ export default function TranslationPanel({
             disabled={isTranslating}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0
               ${isTranslating
-                ? 'bg-violet-900/50 text-violet-300 cursor-not-allowed'
-                : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white'
+                ? 'text-teal-300 cursor-not-allowed'
+                : 'text-white'
               }`}
+            style={
+              isTranslating
+                ? { background: 'var(--accent-muted)' }
+                : { background: 'linear-gradient(to right, var(--grad-from), var(--grad-to))' }
+            }
           >
             {isTranslating ? (
               <>
-                <span className="w-3 h-3 border-2 border-violet-300/30 border-t-violet-200 rounded-full animate-spin" />
+                <span className="w-3 h-3 border-2 border-teal-300/30 border-t-teal-200 rounded-full animate-spin" />
                 Translating...
               </>
             ) : 'Translate'}

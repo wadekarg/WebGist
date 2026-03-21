@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Header from './components/Header'
 import ProviderSettings from './components/ProviderSettings'
 import SummaryPanel from './components/SummaryPanel'
@@ -10,12 +10,15 @@ import {
   getSettings, Settings,
   getHistory, saveToHistory, HistoryItem,
   getSessionSummary, saveSessionSummary, SessionSummary,
+  recordTokenUsage,
+  getCachedSummary, saveCachedSummary,
+  saveSettings,
 } from '../utils/storage'
-import { getProviderById } from '../utils/providers'
+import { getProviderById, type ApiRequestPayload } from '../utils/providers'
 import { googleTranslate } from '../utils/googleTranslate'
 import { type SummaryMode } from './components/SummaryPanel'
 
-const SUMMARY_PROMPTS: Record<SummaryMode, string> = {
+const SUMMARY_PROMPTS: Record<string, string> = {
   keypoints: 'Summarize the following webpage content. Write 6-8 numbered points (1. 2. 3. etc). Plain text only — no asterisks, no bold, no markdown. Each point on its own line.',
   brief:     'Write a concise 3-4 sentence overview of the following webpage content. Plain text only — no asterisks, no markdown.',
   eli5:      'Explain the following webpage content in very simple, plain language as if to someone unfamiliar with the topic. Write 5-7 numbered points. Avoid jargon. Plain text only.',
@@ -23,22 +26,28 @@ const SUMMARY_PROMPTS: Record<SummaryMode, string> = {
   proscons:  'List the pros and cons from the following webpage content. Use this exact format:\nPros:\n1. ...\n\nCons:\n1. ...\n\nPlain text only — no asterisks, no markdown.',
 }
 
-type Status = 'idle' | 'loading' | 'done' | 'error'
+const LENGTH_MODIFIERS: Record<string, string> = {
+  short: 'Be extremely concise. Keep the response under 80 words.',
+  medium: '',
+  long: 'Provide a detailed, comprehensive response. Aim for 300-500 words with thorough coverage.',
+}
+
+type Status = 'idle' | 'loading' | 'streaming' | 'done' | 'error'
 type ActiveTab = 'summary' | 'history' | 'settings'
 
-// Strip markdown formatting from AI responses so asterisks aren't read aloud
+// Strip markdown formatting from AI responses
 function cleanAiText(text: string): string {
   return text
-    .replace(/\*\*\*(.+?)\*\*\*/gs, '$1')   // ***bold italic***
-    .replace(/\*\*(.+?)\*\*/gs, '$1')        // **bold**
-    .replace(/\*([^*\n]+?)\*/gs, '$1')       // *italic*
-    .replace(/^#{1,6}\s+/gm, '')             // ## Headings
-    .replace(/^[-•]\s+/gm, '• ')            // - bullet → •
-    .replace(/`([^`]+)`/g, '$1')             // `code`
-    .replace(/~~(.+?)~~/gs, '$1')            // ~~strikethrough~~
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // [link](url) → text
-    .replace(/[ \t]+$/gm, '')                // trailing spaces
-    .replace(/\n{3,}/g, '\n\n')              // collapse blank lines
+    .replace(/\*\*\*(.+?)\*\*\*/gs, '$1')
+    .replace(/\*\*(.+?)\*\*/gs, '$1')
+    .replace(/\*([^*\n]+?)\*/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^[-•]\s+/gm, '• ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/~~(.+?)~~/gs, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/[ \t]+$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
 
@@ -54,9 +63,15 @@ export default function App() {
     providerId: 'gemini',
     model: 'gemini-2.0-flash',
     apiKeys: {},
+    customPrompts: [],
+    autoSummarize: false,
+    fallbackProviders: [],
+    summaryLength: 'medium',
+    theme: 'dark',
   })
 
   const [summary, setSummary] = useState('')
+  const [prevSummary, setPrevSummary] = useState('')
   const [translatedSummary, setTranslatedSummary] = useState('')
   const [translatedLang, setTranslatedLang] = useState('')
   const [translatedLangCode, setTranslatedLangCode] = useState('')
@@ -70,7 +85,17 @@ export default function App() {
   const [translateError, setTranslateError] = useState('')
 
   const [isSaved, setIsSaved] = useState(false)
+  const [isCached, setIsCached] = useState(false)
   const [currentTabId, setCurrentTabId] = useState<number | null>(null)
+  const [currentMode, setCurrentMode] = useState<string>('keypoints')
+  const [usedFallback, setUsedFallback] = useState<string | null>(null)
+
+  const autoSummarizeTriggered = useRef(false)
+
+  // Apply theme
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', settings.theme === 'light' ? 'light' : 'dark')
+  }, [settings.theme])
 
   // Load settings and restore session summary on mount
   useEffect(() => {
@@ -81,7 +106,6 @@ export default function App() {
       if (!tab?.id) return
       setCurrentTabId(tab.id)
 
-      // Restore cached session summary for this tab
       const session = await getSessionSummary(tab.id)
       if (session?.summary) {
         setPageData({ text: '', title: session.title, url: session.url })
@@ -91,19 +115,84 @@ export default function App() {
         if (session.translatedLangCode) setTranslatedLangCode(session.translatedLangCode)
         setStatus('done')
 
-        // Check if this URL is already in history
         const history = await getHistory()
         setIsSaved(history.some((h) => h.url === session.url))
       }
     })
   }, [])
 
+  // Auto-summarize on mount if enabled and no existing summary
+  useEffect(() => {
+    if (
+      settings.autoSummarize &&
+      !autoSummarizeTriggered.current &&
+      status === 'idle' &&
+      (settings.apiKeys[settings.providerId] ?? '').trim()
+    ) {
+      autoSummarizeTriggered.current = true
+      handleSummarize('keypoints')
+    }
+  }, [settings])
+
+  // Listen for messages from content script (context menu, keyboard shortcut)
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === 'AUTO_SUMMARIZE') {
+        if (status !== 'loading' && status !== 'streaming') {
+          handleSummarize('keypoints')
+        }
+      }
+      if (event.data?.type === 'SUMMARIZE_SELECTION' && event.data.text) {
+        handleSummarizeText(event.data.text)
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [settings, status])
+
   function handleSettingsChange(s: Settings) {
     setSettings(s)
   }
 
-  const sendAiRequest = useCallback(
-    async (prompt: string): Promise<string> => {
+  // ---- Streaming AI request ----
+
+  const sendAiRequestStreaming = useCallback(
+    async (systemPrompt: string, userContent: string): Promise<void> => {
+      const provider = getProviderById(settings.providerId)
+      if (provider?.supportsStreaming) {
+        return new Promise((resolve, reject) => {
+          const port = chrome.runtime.connect({ name: 'ai-stream' })
+          port.postMessage({
+            type: 'AI_STREAM_REQUEST',
+            payload: {
+              provider: settings.providerId,
+              model: settings.model,
+              apiKey: settings.apiKeys[settings.providerId] ?? '',
+              systemPrompt,
+              userContent,
+            } satisfies ApiRequestPayload,
+          })
+          port.onMessage.addListener((msg: { type: string; text?: string; error?: string }) => {
+            if (msg.type === 'AI_STREAM_CHUNK' && msg.text) {
+              setSummary(prev => prev + msg.text)
+            }
+            if (msg.type === 'AI_STREAM_END') {
+              port.disconnect()
+              resolve()
+            }
+            if (msg.type === 'AI_STREAM_ERROR') {
+              port.disconnect()
+              reject(new Error(msg.error ?? 'Streaming error'))
+            }
+          })
+          port.onDisconnect.addListener(() => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message))
+            }
+          })
+        })
+      }
+      // Fallback to non-streaming
       return new Promise((resolve, reject) => {
         chrome.runtime.sendMessage(
           {
@@ -112,26 +201,89 @@ export default function App() {
               provider: settings.providerId,
               model: settings.model,
               apiKey: settings.apiKeys[settings.providerId] ?? '',
-              prompt,
-            },
+              systemPrompt,
+              userContent,
+            } satisfies ApiRequestPayload,
           },
-          (response: { text?: string; error?: string } | undefined) => {
+          (response: { text?: string; error?: string; tokensUsed?: number } | undefined) => {
             if (chrome.runtime.lastError) {
               reject(new Error(chrome.runtime.lastError.message))
               return
             }
-            if (!response) {
-              reject(new Error('No response from background service worker'))
-              return
+            if (!response) { reject(new Error('No response from service worker')); return }
+            if (response.error) { reject(new Error(response.error)); return }
+            setSummary(response.text ?? '')
+            if (response.tokensUsed) {
+              recordTokenUsage(settings.providerId, response.tokensUsed)
             }
-            if (response.error) {
-              reject(new Error(response.error))
-              return
-            }
-            resolve(response.text ?? '')
+            resolve()
           }
         )
       })
+    },
+    [settings]
+  )
+
+  // ---- Fallback-aware AI request ----
+
+  const sendAiRequestWithFallback = useCallback(
+    async (systemPrompt: string, userContent: string): Promise<void> => {
+      const providerIds = [settings.providerId, ...settings.fallbackProviders]
+        .filter((id, i, arr) => arr.indexOf(id) === i)  // dedupe
+        .filter(id => id === 'ollama' || (settings.apiKeys[id] ?? '').trim())
+
+      for (let i = 0; i < providerIds.length; i++) {
+        const pid = providerIds[i]
+        try {
+          const provider = getProviderById(pid)
+          const model = pid === settings.providerId ? settings.model : (provider?.defaultModel ?? '')
+
+          const payload: ApiRequestPayload = {
+            provider: pid,
+            model,
+            apiKey: settings.apiKeys[pid] ?? '',
+            systemPrompt,
+            userContent,
+          }
+
+          if (provider?.supportsStreaming) {
+            await new Promise<void>((resolve, reject) => {
+              const port = chrome.runtime.connect({ name: 'ai-stream' })
+              port.postMessage({ type: 'AI_STREAM_REQUEST', payload })
+              port.onMessage.addListener((msg: { type: string; text?: string; error?: string }) => {
+                if (msg.type === 'AI_STREAM_CHUNK' && msg.text) {
+                  setSummary(prev => prev + msg.text)
+                }
+                if (msg.type === 'AI_STREAM_END') { port.disconnect(); resolve() }
+                if (msg.type === 'AI_STREAM_ERROR') { port.disconnect(); reject(new Error(msg.error)) }
+              })
+              port.onDisconnect.addListener(() => {
+                if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message))
+              })
+            })
+          } else {
+            await new Promise<void>((resolve, reject) => {
+              chrome.runtime.sendMessage(
+                { type: 'AI_REQUEST', payload },
+                (response: { text?: string; error?: string; tokensUsed?: number } | undefined) => {
+                  if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return }
+                  if (!response || response.error) { reject(new Error(response?.error ?? 'No response')); return }
+                  setSummary(response.text ?? '')
+                  if (response.tokensUsed) recordTokenUsage(pid, response.tokensUsed)
+                  resolve()
+                }
+              )
+            })
+          }
+
+          if (i > 0) setUsedFallback(provider?.name ?? pid)
+          return
+        } catch (err) {
+          setSummary('')  // clear partial streaming on failure
+          if (i === providerIds.length - 1) throw err
+          // else try next provider
+        }
+      }
     },
     [settings]
   )
@@ -146,15 +298,11 @@ export default function App() {
           return
         }
         const tab = tabs[0]
-        if (!tab?.id) {
-          reject(new Error('No active tab found'))
-          return
-        }
+        if (!tab?.id) { reject(new Error('No active tab found')); return }
         const tabId = tab.id
-        const url   = tab.url   || ''
+        const url = tab.url || ''
         const title = tab.title || ''
 
-        // --- Try enhanced extraction (Trafilatura → optionally Jina) ---
         chrome.runtime.sendMessage(
           { type: 'ENHANCED_EXTRACT', tabId, url, withJina },
           (enhanced: { text: string } | undefined) => {
@@ -163,12 +311,9 @@ export default function App() {
               return
             }
 
-            // --- Fallback: Readability content script ---
             const useReadability = () => {
               chrome.tabs.sendMessage(tabId, { type: 'GET_PAGE_TEXT' }, (r: PageData | undefined) => {
                 if (!chrome.runtime.lastError && r) { resolve(r); return }
-
-                // Content script not running — inject it and retry once
                 chrome.scripting.executeScript(
                   { target: { tabId }, files: ['content/index.js'] },
                   () => {
@@ -199,49 +344,84 @@ export default function App() {
     }
   }
 
-  async function handleSummarize(mode: SummaryMode = 'keypoints') {
-    if (!(settings.apiKeys[settings.providerId] ?? '').trim()) return
+  async function handleSummarize(mode: string = 'keypoints') {
+    const isOllama = settings.providerId === 'ollama'
+    if (!isOllama && !(settings.apiKeys[settings.providerId] ?? '').trim()) return
+    if (status === 'loading' || status === 'streaming') return
 
-    setStatus('loading')
+    // Save previous summary for comparison
+    if (summary) setPrevSummary(summary)
+
+    setStatus('streaming')
     setErrorMessage('')
     setSummary('')
     setTranslatedSummary('')
     setTranslatedLang('')
     setTranslatedLangCode('')
     setIsSaved(false)
+    setIsCached(false)
+    setUsedFallback(null)
+    setCurrentMode(mode)
 
     try {
-      const data = await getPageText(false)  // no Jina — keep AI summary fast
+      const data = await getPageText(false)
       setPageData(data)
 
       if (!data.text.trim()) {
         throw new Error('Could not extract text from this page. It may be a PDF or protected page.')
       }
 
-      const prompt = `${SUMMARY_PROMPTS[mode]}
-
-Title: ${data.title}
-URL: ${data.url}
-
-Content:
-${data.text.slice(0, 15000)}`
-
-      const result = await sendAiRequest(prompt)
-
-      if (!result.trim()) {
-        throw new Error('AI returned an empty response. Please try again.')
+      // Check offline cache
+      const cached = await getCachedSummary(data.url, mode)
+      if (cached) {
+        setSummary(cached.summary)
+        setStatus('done')
+        setIsCached(true)
+        await persistSession({ url: data.url, title: data.title, summary: cached.summary })
+        const history = await getHistory()
+        setIsSaved(history.some((h) => h.url === data.url))
+        return
       }
 
-      const trimmed = cleanAiText(result.trim())
-      setSummary(trimmed)
-      setStatus('done')
+      const provider = getProviderById(settings.providerId)
+      const maxChars = provider?.maxInputChars ?? 15000
 
-      // Cache in session storage so summary survives popup close/reopen
-      await persistSession({ url: data.url, title: data.title, summary: trimmed })
+      // Look up prompt: built-in or custom
+      let systemPrompt = SUMMARY_PROMPTS[mode]
+      if (!systemPrompt) {
+        const custom = settings.customPrompts.find(p => p.id === mode)
+        systemPrompt = custom?.prompt ?? SUMMARY_PROMPTS['keypoints']
+      }
 
-      // Check if already saved to history
-      const history = await getHistory()
-      setIsSaved(history.some((h) => h.url === data.url))
+      // Apply length modifier
+      const lengthMod = LENGTH_MODIFIERS[settings.summaryLength] ?? ''
+      if (lengthMod) systemPrompt = `${lengthMod}\n\n${systemPrompt}`
+
+      const userContent = `Title: ${data.title}\nURL: ${data.url}\n\nContent:\n${data.text.slice(0, maxChars)}`
+
+      await sendAiRequestWithFallback(systemPrompt, userContent)
+
+      // After streaming completes, get the final summary from state
+      // We need to use a callback since setSummary is async
+      setSummary(prev => {
+        const trimmed = cleanAiText(prev.trim())
+        if (!trimmed) {
+          setErrorMessage('AI returned an empty response. Please try again.')
+          setStatus('error')
+          return prev
+        }
+
+        setStatus('done')
+
+        // Cache and persist
+        persistSession({ url: data.url, title: data.title, summary: trimmed })
+        saveCachedSummary({ url: data.url, summary: trimmed, mode, timestamp: Date.now() })
+        getHistory().then(history => {
+          setIsSaved(history.some((h) => h.url === data.url))
+        })
+
+        return trimmed
+      })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'An unexpected error occurred'
       setErrorMessage(msg)
@@ -249,18 +429,114 @@ ${data.text.slice(0, 15000)}`
     }
   }
 
-  async function handleExtractPage() {
-    setIsExtracting(true)
+  // Summarize arbitrary text (from context menu selection)
+  async function handleSummarizeText(text: string) {
+    const isOllama = settings.providerId === 'ollama'
+    if (!isOllama && !(settings.apiKeys[settings.providerId] ?? '').trim()) return
+    if (status === 'loading' || status === 'streaming') return
+
+    if (summary) setPrevSummary(summary)
+
+    setStatus('streaming')
     setErrorMessage('')
     setSummary('')
     setTranslatedSummary('')
     setTranslatedLang('')
     setTranslatedLangCode('')
     setIsSaved(false)
+    setIsCached(false)
+    setUsedFallback(null)
+
+    try {
+      const systemPrompt = 'Summarize the following text. Write 4-6 numbered points. Plain text only — no asterisks, no markdown.'
+      const userContent = `Text:\n${text.slice(0, 15000)}`
+
+      await sendAiRequestWithFallback(systemPrompt, userContent)
+
+      setSummary(prev => {
+        const trimmed = cleanAiText(prev.trim())
+        setStatus(trimmed ? 'done' : 'error')
+        if (!trimmed) setErrorMessage('AI returned an empty response.')
+        return trimmed || prev
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'An unexpected error occurred'
+      setErrorMessage(msg)
+      setStatus('error')
+    }
+  }
+
+  // Multi-tab summarization
+  async function handleMultiTabSummarize() {
+    const isOllama = settings.providerId === 'ollama'
+    if (!isOllama && !(settings.apiKeys[settings.providerId] ?? '').trim()) return
+    if (status === 'loading' || status === 'streaming') return
+
+    if (summary) setPrevSummary(summary)
+
+    setStatus('streaming')
+    setErrorMessage('')
+    setSummary('')
+    setTranslatedSummary('')
+    setTranslatedLang('')
+    setTranslatedLangCode('')
+    setIsSaved(false)
+    setIsCached(false)
+    setUsedFallback(null)
+
+    try {
+      const response = await new Promise<{ tabs: { title: string; url: string; text: string }[] }>((resolve, reject) => {
+        chrome.runtime.sendMessage({ type: 'MULTI_TAB_EXTRACT' }, (res) => {
+          if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return }
+          resolve(res as { tabs: { title: string; url: string; text: string }[] })
+        })
+      })
+
+      if (!response.tabs?.length) throw new Error('No tabs to summarize. Select multiple tabs with Ctrl+Click.')
+
+      const systemPrompt = `Summarize the following ${response.tabs.length} webpages together. Identify common themes and key differences. Write 8-10 numbered points. Plain text only — no markdown.`
+
+      const maxPerTab = Math.floor(15000 / response.tabs.length)
+      const userContent = response.tabs
+        .map((t, i) => `--- Page ${i + 1}: ${t.title} ---\nURL: ${t.url}\n${t.text.slice(0, maxPerTab)}`)
+        .join('\n\n')
+
+      setPageData({ text: '', title: `Summary of ${response.tabs.length} pages`, url: '' })
+
+      await sendAiRequestWithFallback(systemPrompt, userContent)
+
+      setSummary(prev => {
+        const trimmed = cleanAiText(prev.trim())
+        setStatus(trimmed ? 'done' : 'error')
+        if (!trimmed) setErrorMessage('AI returned an empty response.')
+        return trimmed || prev
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'An unexpected error occurred'
+      setErrorMessage(msg)
+      setStatus('error')
+    }
+  }
+
+  async function handleResync() {
+    setIsCached(false)
+    handleSummarize(currentMode)
+  }
+
+  async function handleExtractPage() {
+    setIsExtracting(true)
+    setErrorMessage('')
+    if (summary) setPrevSummary(summary)
+    setSummary('')
+    setTranslatedSummary('')
+    setTranslatedLang('')
+    setTranslatedLangCode('')
+    setIsSaved(false)
+    setIsCached(false)
     setStatus('idle')
 
     try {
-      const data = await getPageText(true)  // use Jina for Full Page (best quality)
+      const data = await getPageText(true)
       setPageData(data)
 
       if (!data.text.trim()) {
@@ -292,10 +568,8 @@ ${data.text.slice(0, 15000)}`
 
     try {
       const trimmed = await googleTranslate(summary, langCode)
-
       setTranslatedSummary(trimmed)
 
-      // Update session cache with translation
       await persistSession({
         url: pageData.url,
         title: pageData.title,
@@ -305,7 +579,6 @@ ${data.text.slice(0, 15000)}`
         translatedLangCode: langCode,
       })
 
-      // Update history entry if already saved
       if (isSaved) {
         await saveToHistory({
           url: pageData.url,
@@ -314,6 +587,7 @@ ${data.text.slice(0, 15000)}`
           translatedSummary: trimmed,
           translatedLang: langName,
           translatedLangCode: langCode,
+          tags: [],
         })
       }
     } catch (err) {
@@ -335,6 +609,9 @@ ${data.text.slice(0, 15000)}`
       translatedSummary: translatedSummary || undefined,
       translatedLang: translatedLang || undefined,
       translatedLangCode: translatedLangCode || undefined,
+      tags: [],
+      mode: currentMode,
+      providerId: settings.providerId,
     })
     setIsSaved(true)
   }
@@ -350,31 +627,37 @@ ${data.text.slice(0, 15000)}`
     setActiveTab('summary')
   }
 
-  const hasApiKey = (settings.apiKeys[settings.providerId] ?? '').trim().length > 0
+  const isOllama = settings.providerId === 'ollama'
+  const hasApiKey = isOllama || (settings.apiKeys[settings.providerId] ?? '').trim().length > 0
   const providerName = getProviderById(settings.providerId)?.name ?? settings.providerId
-  const hasSummary = status === 'done' && summary.length > 0
+  const hasSummary = (status === 'done' || status === 'streaming') && summary.length > 0
 
   return (
     <div
       className="w-full min-h-screen overflow-y-auto bg-gray-900 text-white flex flex-col"
       style={{ minHeight: '100vh' }}
     >
-      <Header activeTab={activeTab} onTabChange={setActiveTab} />
+      <Header
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        theme={settings.theme}
+        onThemeChange={(theme) => {
+          const updated = { ...settings, theme }
+          setSettings(updated)
+          saveSettings(updated)
+        }}
+      />
 
-      {/* Settings */}
       {activeTab === 'settings' && (
         <ProviderSettings settings={settings} onSettingsChange={handleSettingsChange} />
       )}
 
-      {/* History */}
       {activeTab === 'history' && (
         <HistoryPanel onLoadSummary={handleLoadFromHistory} />
       )}
 
-      {/* Summary view */}
       {activeTab === 'summary' && (
         <>
-          {/* Active provider badge */}
           {hasApiKey && (
             <div className="px-4 pt-3">
               <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
@@ -383,22 +666,45 @@ ${data.text.slice(0, 15000)}`
                 <span className="text-gray-600">·</span>
                 <span className="text-gray-500 truncate max-w-[160px]">{settings.model}</span>
               </div>
+              {usedFallback && (
+                <div className="text-[10px] text-amber-400 mt-0.5">
+                  Primary provider failed — used {usedFallback} instead
+                </div>
+              )}
             </div>
           )}
 
           <SummaryPanel
             summary={summary}
+            prevSummary={prevSummary}
             status={status}
             errorMessage={errorMessage}
             hasApiKey={hasApiKey}
             isSaved={isSaved}
+            isCached={isCached}
             isExtracting={isExtracting}
+            customPrompts={settings.customPrompts}
+            summaryLength={settings.summaryLength}
+            pageTitle={pageData.title}
+            pageUrl={pageData.url}
             onSummarize={(mode) => handleSummarize(mode)}
             onExtractPage={handleExtractPage}
+            onMultiTab={handleMultiTabSummarize}
             onSave={handleSaveToHistory}
+            onResync={handleResync}
+            onLengthChange={(len) => {
+              const updated = { ...settings, summaryLength: len }
+              setSettings(updated)
+              saveSettings(updated)
+            }}
+            onCustomPromptsChange={(prompts) => {
+              const updated = { ...settings, customPrompts: prompts }
+              setSettings(updated)
+              saveSettings(updated)
+            }}
           />
 
-          {hasSummary && (
+          {hasSummary && status === 'done' && (
             <TranslationPanel
               summary={summary}
               translatedSummary={translatedSummary}
@@ -408,8 +714,7 @@ ${data.text.slice(0, 15000)}`
             />
           )}
 
-          {/* Read Aloud — reads whatever is currently displayed in the summary box */}
-          {hasSummary && (
+          {hasSummary && status === 'done' && (
             <AudioControls
               originalText={summary}
               translatedText={translatedSummary || undefined}
@@ -418,7 +723,7 @@ ${data.text.slice(0, 15000)}`
             />
           )}
 
-          {hasSummary && (
+          {hasSummary && status === 'done' && (
             <ExportPanel
               summary={summary}
               translatedSummary={translatedSummary}
@@ -431,7 +736,7 @@ ${data.text.slice(0, 15000)}`
           {status === 'idle' && !hasApiKey && (
             <div className="px-4 pb-6 pt-2 text-center">
               <div className="text-gray-600 text-xs">
-                Open Settings to configure your API key, then summarize any webpage instantly.
+                Open Settings to configure your AI provider, then summarize any webpage instantly.
               </div>
             </div>
           )}

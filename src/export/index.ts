@@ -45,9 +45,9 @@ chrome.storage.local.get('wg_export', (data) => {
 
   const printBtn = document.createElement('button')
   printBtn.style.cssText =
-    'background:#4f46e5;color:white;border:none;padding:7px 16px;border-radius:6px;' +
+    'background:#3b82f6;color:white;border:none;padding:7px 16px;border-radius:6px;' +
     'font-size:13px;font-weight:600;cursor:pointer;font-family:sans-serif;' +
-    'box-shadow:0 2px 8px rgba(79,70,229,.4);'
+    'box-shadow:0 2px 8px rgba(59,130,246,.4);'
   printBtn.textContent = '🖨️ Save as PDF'
   printBtn.addEventListener('click', () => window.print())
 

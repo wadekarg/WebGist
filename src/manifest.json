@@ -10,9 +10,19 @@
       "128": "icons/icon128.png"
     }
   },
+  "commands": {
+    "toggle-panel": {
+      "suggested_key": { "default": "Alt+G" },
+      "description": "Open/close WebGist panel"
+    },
+    "summarize": {
+      "suggested_key": { "default": "Alt+S" },
+      "description": "Summarize current page"
+    }
+  },
   "web_accessible_resources": [
     {
-      "resources": ["popup/*", "*.js", "*.css"],
+      "resources": ["popup/index.html"],
       "matches": ["<all_urls>"]
     }
   ],
@@ -27,8 +37,26 @@
       "run_at": "document_idle"
     }
   ],
-  "permissions": ["activeTab", "scripting", "storage", "offscreen", "tabs"],
-  "host_permissions": ["<all_urls>", "http://127.0.0.1:7777/*"],
+  "permissions": ["activeTab", "scripting", "storage", "offscreen", "tabs", "contextMenus"],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/*",
+    "https://api.groq.com/*",
+    "https://api.deepseek.com/*",
+    "https://api.cerebras.ai/*",
+    "https://api.sambanova.ai/*",
+    "https://api.together.xyz/*",
+    "https://integrate.api.nvidia.com/*",
+    "https://api.moonshot.ai/*",
+    "https://api.mistral.ai/*",
+    "https://api.cohere.ai/*",
+    "https://openrouter.ai/*",
+    "https://api.anthropic.com/*",
+    "https://translate.googleapis.com/*",
+    "https://translate.google.com/*",
+    "https://r.jina.ai/*",
+    "http://127.0.0.1:7777/*",
+    "http://localhost:11434/*"
+  ],
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

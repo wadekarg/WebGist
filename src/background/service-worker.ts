@@ -1,27 +1,27 @@
-// Background service worker — handles AI API calls, enhanced extraction, and offscreen TTS
+// Background service worker — handles AI API calls, streaming, enhanced extraction,
+// context menu, keyboard shortcuts, health checks, and offscreen TTS
 
-import { callProviderApi } from '../utils/providers'
+import {
+  callProviderApi,
+  callProviderApiStream,
+  pingProvider,
+  fetchOllamaModels,
+  type ApiRequestPayload,
+  type ApiResponse,
+} from '../utils/providers'
 
-interface AiRequestPayload {
-  provider: string
-  model: string
-  apiKey: string
-  prompt: string
-}
+// ---- Types ----
 
 interface AiRequestMessage {
   type: 'AI_REQUEST'
-  payload: AiRequestPayload
+  payload: ApiRequestPayload
 }
 
-interface AiResponseSuccess { text: string }
-interface AiResponseError { error: string }
+type AiResponseSuccess = { text: string; tokensUsed?: number }
+type AiResponseError = { error: string }
 type AiResponse = AiResponseSuccess | AiResponseError
 
 // ---- Enhanced content extraction ----
-// Tier 1: Trafilatura local server (best quality, needs `python webgist_server.py`)
-// Tier 2: Jina AI Reader (free, no key, server-side headless Chrome — optional, withJina flag)
-// Tier 3: Caller falls back to Readability content script
 
 async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
   const ctrl = new AbortController()
@@ -34,7 +34,6 @@ async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Pro
 }
 
 async function enhancedExtract(tabId: number, url: string, withJina: boolean): Promise<string> {
-  // ---- Tier 1: Get raw HTML, POST to Trafilatura server ----
   let html = ''
   try {
     const results = await chrome.scripting.executeScript({
@@ -42,7 +41,7 @@ async function enhancedExtract(tabId: number, url: string, withJina: boolean): P
       func: () => document.documentElement.outerHTML,
     })
     html = (results[0]?.result as string) || ''
-  } catch { /* scripting blocked (PDF, chrome://, etc.) */ }
+  } catch { /* scripting blocked */ }
 
   if (html) {
     try {
@@ -53,7 +52,7 @@ async function enhancedExtract(tabId: number, url: string, withJina: boolean): P
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ html, url }),
         },
-        5000   // 5 s — if server not running, fail fast
+        5000
       )
       if (resp.ok) {
         const data = await resp.json() as { text?: string }
@@ -62,22 +61,46 @@ async function enhancedExtract(tabId: number, url: string, withJina: boolean): P
     } catch { /* server not running */ }
   }
 
-  // ---- Tier 2: Jina AI Reader (only for Full Page mode) ----
   if (withJina && url) {
     try {
       const resp = await fetchWithTimeout(
         `https://r.jina.ai/${url}`,
         { headers: { 'X-Return-Format': 'text' } },
-        20000   // up to 20 s for server-side render
+        20000
       )
       if (resp.ok) {
         const text = await resp.text()
         if (text.trim()) return text.trim()
       }
-    } catch { /* Jina timed out or unavailable */ }
+    } catch { /* Jina unavailable */ }
   }
 
-  return ''  // Signal caller to use Readability fallback
+  return ''
+}
+
+// ---- Multi-tab extraction ----
+
+async function extractMultipleTabs(): Promise<{ title: string; url: string; text: string }[]> {
+  const tabs = await chrome.tabs.query({ highlighted: true, currentWindow: true })
+  const results: { title: string; url: string; text: string }[] = []
+
+  for (const tab of tabs.slice(0, 5)) {
+    if (!tab.id) continue
+    try {
+      const execResult = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => document.body.innerText.slice(0, 10000),
+      })
+      results.push({
+        title: tab.title ?? '',
+        url: tab.url ?? '',
+        text: execResult[0]?.result ?? '',
+      })
+    } catch {
+      results.push({ title: tab.title ?? '', url: tab.url ?? '', text: '(Could not extract)' })
+    }
+  }
+  return results
 }
 
 // ---- Offscreen document management ----
@@ -104,6 +127,27 @@ function relayToOffscreen(message: object): void {
   })
 }
 
+// ---- Streaming via ports ----
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'ai-stream') return
+
+  port.onMessage.addListener(async (msg: { type: string; payload: ApiRequestPayload }) => {
+    if (msg.type !== 'AI_STREAM_REQUEST') return
+
+    try {
+      const stream = callProviderApiStream(msg.payload)
+      for await (const chunk of stream) {
+        try { port.postMessage({ type: 'AI_STREAM_CHUNK', text: chunk }) } catch { return }
+      }
+      port.postMessage({ type: 'AI_STREAM_END' })
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error occurred'
+      try { port.postMessage({ type: 'AI_STREAM_ERROR', error: errorMsg }) } catch {}
+    }
+  })
+})
+
 // ---- Message listener ----
 
 const TTS_TYPES = new Set(['TTS_SPEAK', 'TTS_PAUSE', 'TTS_RESUME', 'TTS_STOP', 'GET_VOICES', 'GET_TTS_STATE', 'TTS_SET_SPEED'])
@@ -112,14 +156,14 @@ chrome.runtime.onMessage.addListener(
   (
     message: AiRequestMessage | { type: string; [key: string]: unknown },
     _sender: chrome.runtime.MessageSender,
-    sendResponse: (response: AiResponse | { ok: boolean } | { text: string } | unknown[]) => void
+    sendResponse: (response: AiResponse | { ok: boolean } | { text: string } | unknown) => void
   ) => {
     if ((message as { target?: string }).target === 'offscreen') return false
 
     if (message.type === 'AI_REQUEST') {
       const { payload } = message as AiRequestMessage
       callProviderApi(payload)
-        .then((text) => sendResponse({ text }))
+        .then((response: ApiResponse) => sendResponse({ text: response.text, tokensUsed: response.tokensUsed }))
         .catch((err: unknown) => {
           const errorMsg = err instanceof Error ? err.message : 'Unknown error occurred'
           sendResponse({ error: errorMsg })
@@ -132,6 +176,28 @@ chrome.runtime.onMessage.addListener(
       enhancedExtract(tabId, url, withJina ?? false)
         .then((text) => sendResponse({ text }))
         .catch(() => sendResponse({ text: '' }))
+      return true
+    }
+
+    if (message.type === 'MULTI_TAB_EXTRACT') {
+      extractMultipleTabs()
+        .then((tabs) => sendResponse({ tabs }))
+        .catch(() => sendResponse({ tabs: [] }))
+      return true
+    }
+
+    if (message.type === 'PING_PROVIDER') {
+      const { providerId, apiKey } = message as { type: string; providerId: string; apiKey: string }
+      pingProvider(providerId, apiKey)
+        .then((ok) => sendResponse({ ok }))
+        .catch(() => sendResponse({ ok: false }))
+      return true
+    }
+
+    if (message.type === 'GET_OLLAMA_MODELS') {
+      fetchOllamaModels()
+        .then((models) => sendResponse({ models }))
+        .catch(() => sendResponse({ models: [] }))
       return true
     }
 
@@ -164,11 +230,50 @@ chrome.runtime.onMessage.addListener(
   }
 )
 
-// Toolbar icon click — toggle the injected side panel on the active tab
+// ---- Toolbar icon click ----
+
 chrome.action.onClicked.addListener((tab) => {
   if (tab.id) {
     chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_PANEL' }).catch(() => {})
   }
 })
 
-chrome.runtime.onInstalled.addListener(() => {})
+// ---- Keyboard shortcuts ----
+
+chrome.commands.onCommand.addListener((command) => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tabId = tabs[0]?.id
+    if (!tabId) return
+    if (command === 'toggle-panel') {
+      chrome.tabs.sendMessage(tabId, { type: 'TOGGLE_PANEL' }).catch(() => {})
+    } else if (command === 'summarize') {
+      chrome.tabs.sendMessage(tabId, { type: 'OPEN_AND_SUMMARIZE' }).catch(() => {})
+    }
+  })
+})
+
+// ---- Context menu ----
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: 'webgist-summarize-selection',
+    title: 'Summarize with WebGist',
+    contexts: ['selection'],
+  })
+})
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === 'webgist-summarize-selection' && tab?.id && info.selectionText) {
+    chrome.tabs.sendMessage(tab.id, {
+      type: 'SUMMARIZE_SELECTION',
+      text: info.selectionText,
+    }).catch(() => {})
+  }
+})
+
+// ---- Session cleanup on tab close ----
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  const key = `session_tab_${tabId}`
+  chrome.storage.session.remove(key).catch(() => {})
+})

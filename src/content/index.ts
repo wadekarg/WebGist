@@ -269,7 +269,7 @@ interface PageData { text: string; title: string; url: string }
 // ---- Message listener ----
 
 chrome.runtime.onMessage.addListener(
-  (message: { type: string; target?: string }, _sender, sendResponse) => {
+  (message: { type: string; target?: string; text?: string }, _sender, sendResponse) => {
     if (message.target === 'offscreen') return false
 
     if (message.type === 'GET_PAGE_TEXT') {
@@ -278,11 +278,35 @@ chrome.runtime.onMessage.addListener(
         title: document.title || '',
         url: window.location.href || '',
       } as PageData)
-      return true
+      return false
     }
 
     if (message.type === 'TOGGLE_PANEL') {
       togglePanel()
+      return false
+    }
+
+    if (message.type === 'OPEN_AND_SUMMARIZE') {
+      if (!panelOpen) openPanel()
+      // Tell the popup iframe to auto-summarize
+      setTimeout(() => {
+        const iframe = panelHost?.querySelector('iframe')
+        if (iframe?.contentWindow) {
+          iframe.contentWindow.postMessage({ type: 'AUTO_SUMMARIZE' }, '*')
+        }
+      }, 500)
+      return false
+    }
+
+    if (message.type === 'SUMMARIZE_SELECTION' && message.text) {
+      if (!panelOpen) openPanel()
+      // Tell the popup iframe to summarize the selected text
+      setTimeout(() => {
+        const iframe = panelHost?.querySelector('iframe')
+        if (iframe?.contentWindow) {
+          iframe.contentWindow.postMessage({ type: 'SUMMARIZE_SELECTION', text: message.text }, '*')
+        }
+      }, 500)
       return false
     }
 
@@ -386,8 +410,8 @@ function injectFab() {
     `right:${savedPos.right}px`,
     'z-index:2147483647',
     'width:44px', 'height:44px', 'border-radius:50%',
-    'background:#4f46e5', 'border:none', 'cursor:grab',
-    'box-shadow:0 2px 14px rgba(79,70,229,.55)',
+    'background:#3b82f6', 'border:none', 'cursor:grab',
+    'box-shadow:0 2px 14px rgba(59,130,246,.55)',
     'display:flex', 'align-items:center', 'justify-content:center', 'padding:0',
     'user-select:none', '-webkit-user-select:none',
     'transition:box-shadow .15s',
@@ -447,10 +471,10 @@ function injectFab() {
   })
 
   btn.addEventListener('mouseenter', () => {
-    if (!dragging) btn.style.boxShadow = '0 4px 20px rgba(79,70,229,.75)'
+    if (!dragging) btn.style.boxShadow = '0 4px 20px rgba(59,130,246,.75)'
   })
   btn.addEventListener('mouseleave', () => {
-    if (!dragging) btn.style.boxShadow = '0 2px 14px rgba(79,70,229,.55)'
+    if (!dragging) btn.style.boxShadow = '0 2px 14px rgba(59,130,246,.55)'
   })
 
   const attach = () => document.body?.appendChild(btn)
