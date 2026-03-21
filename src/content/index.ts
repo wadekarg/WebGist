@@ -310,32 +310,17 @@ function injectPanel() {
     'display:flex', 'flex-direction:column',
   ].join(';')
 
-  // Close button tab on the left edge of the panel
-  const closeBtn = document.createElement('button')
-  closeBtn.title = 'Close WebGist'
-  closeBtn.innerHTML = '✕'
-  closeBtn.style.cssText = [
-    'position:absolute', 'top:10px', 'right:10px',
-    'width:28px', 'height:28px',
-    'background:rgba(255,255,255,0.1)',
-    'border:none', 'border-radius:6px',
-    'color:white', 'font-size:13px',
-    'cursor:pointer', 'display:flex',
-    'align-items:center', 'justify-content:center',
-    'z-index:10',
-    'transition:background 0.15s',
-  ].join(';')
-  closeBtn.addEventListener('mouseenter', () => { closeBtn.style.background = 'rgba(255,255,255,0.2)' })
-  closeBtn.addEventListener('mouseleave', () => { closeBtn.style.background = 'rgba(255,255,255,0.1)' })
-  closeBtn.addEventListener('click', closePanel)
-
   const iframe = document.createElement('iframe')
   iframe.src = chrome.runtime.getURL('popup/index.html')
   iframe.style.cssText = 'width:100%;flex:1;border:none;display:block;'
 
-  panelHost.appendChild(closeBtn)
   panelHost.appendChild(iframe)
   document.body.appendChild(panelHost)
+
+  // Close via postMessage from the iframe's X button
+  window.addEventListener('message', (e) => {
+    if (e.data?.type === 'WG_CLOSE_PANEL') closePanel()
+  })
 
   // Close on Escape key
   document.addEventListener('keydown', (e) => {
