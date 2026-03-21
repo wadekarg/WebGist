@@ -314,13 +314,28 @@ function injectPanel() {
   iframe.src = chrome.runtime.getURL('popup/index.html')
   iframe.style.cssText = 'width:100%;flex:1;border:none;display:block;'
 
-  panelHost.appendChild(iframe)
-  document.body.appendChild(panelHost)
+  // Close button — appended after iframe so it renders above it
+  const closeBtn = document.createElement('button')
+  closeBtn.title = 'Close WebGist'
+  closeBtn.innerHTML = '&times;'
+  closeBtn.style.cssText = [
+    'position:absolute', 'top:11px', 'right:10px',
+    'width:28px', 'height:28px',
+    'background:rgba(255,255,255,0.15)',
+    'border:none', 'border-radius:6px',
+    'color:white', 'font-size:18px', 'line-height:1',
+    'cursor:pointer', 'display:flex',
+    'align-items:center', 'justify-content:center',
+    'z-index:2147483647',
+    'transition:background 0.15s',
+  ].join(';')
+  closeBtn.addEventListener('mouseenter', () => { closeBtn.style.background = 'rgba(255,255,255,0.3)' })
+  closeBtn.addEventListener('mouseleave', () => { closeBtn.style.background = 'rgba(255,255,255,0.15)' })
+  closeBtn.addEventListener('click', closePanel)
 
-  // Close via postMessage from the iframe's X button
-  window.addEventListener('message', (e) => {
-    if (e.data?.type === 'WG_CLOSE_PANEL') closePanel()
-  })
+  panelHost.appendChild(iframe)
+  panelHost.appendChild(closeBtn)
+  document.body.appendChild(panelHost)
 
   // Close on Escape key
   document.addEventListener('keydown', (e) => {

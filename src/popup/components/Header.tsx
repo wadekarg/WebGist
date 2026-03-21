@@ -1,18 +1,11 @@
 import React from 'react'
-import { Settings, Zap, Clock, X } from 'lucide-react'
+import { Settings, Zap, Clock } from 'lucide-react'
 
 type ActiveTab = 'summary' | 'history' | 'settings'
 
 interface HeaderProps {
   activeTab: ActiveTab
   onTabChange: (tab: ActiveTab) => void
-}
-
-// Detect if we're running inside the injected side panel (iframe)
-const isInSidePanel = window.self !== window.top
-
-function closePanel() {
-  window.parent.postMessage({ type: 'WG_CLOSE_PANEL' }, '*')
 }
 
 export default function Header({ activeTab, onTabChange }: HeaderProps) {
@@ -52,30 +45,18 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         ))}
       </div>
 
-      {/* Right controls: Settings + Close (when in side panel) */}
-      <div className="flex items-center gap-1 flex-shrink-0">
-        <button
-          onClick={() => onTabChange(activeTab === 'settings' ? 'summary' : 'settings')}
-          title={activeTab === 'settings' ? 'Back' : 'Settings'}
-          className={`p-1.5 rounded-lg transition-all
-            ${activeTab === 'settings'
-              ? 'bg-violet-600 text-white shadow-md shadow-violet-900/50'
-              : 'text-gray-400 hover:text-white hover:bg-gray-700'
-            }`}
-        >
-          <Settings size={16} />
-        </button>
-
-        {isInSidePanel && (
-          <button
-            onClick={closePanel}
-            title="Close"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-all"
-          >
-            <X size={16} />
-          </button>
-        )}
-      </div>
+      {/* Settings — leave space on the right for the content-script X button */}
+      <button
+        onClick={() => onTabChange(activeTab === 'settings' ? 'summary' : 'settings')}
+        title={activeTab === 'settings' ? 'Back' : 'Settings'}
+        className={`p-1.5 rounded-lg transition-all flex-shrink-0 mr-8
+          ${activeTab === 'settings'
+            ? 'bg-violet-600 text-white shadow-md shadow-violet-900/50'
+            : 'text-gray-400 hover:text-white hover:bg-gray-700'
+          }`}
+      >
+        <Settings size={16} />
+      </button>
     </header>
   )
 }
