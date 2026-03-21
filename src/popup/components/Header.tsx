@@ -49,7 +49,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       <button
         onClick={() => onTabChange(activeTab === 'settings' ? 'summary' : 'settings')}
         title={activeTab === 'settings' ? 'Back' : 'Settings'}
-        className={`p-1.5 rounded-lg transition-all flex-shrink-0
+        className={`p-1.5 rounded-lg transition-all flex-shrink-0 mr-7
           ${activeTab === 'settings'
             ? 'bg-violet-600 text-white shadow-md shadow-violet-900/50'
             : 'text-gray-400 hover:text-white hover:bg-gray-700'

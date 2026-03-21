@@ -319,19 +319,24 @@ function injectPanel() {
   closeBtn.title = 'Close WebGist'
   closeBtn.innerHTML = '&times;'
   closeBtn.style.cssText = [
-    'position:absolute', 'top:16px', 'left:-32px',
-    'width:32px', 'height:44px',
-    'background:#4f46e5',
-    'border:none', 'border-radius:8px 0 0 8px',
-    'color:white', 'font-size:18px', 'line-height:1',
+    'position:absolute', 'top:8px', 'right:8px',
+    'width:26px', 'height:26px',
+    'background:rgba(255,255,255,0.12)',
+    'border:none', 'border-radius:6px',
+    'color:rgba(255,255,255,0.8)', 'font-size:16px', 'line-height:1',
     'cursor:pointer', 'display:flex',
     'align-items:center', 'justify-content:center',
-    'box-shadow:-3px 0 10px rgba(0,0,0,0.3)',
     'z-index:2147483647',
-    'transition:background 0.15s',
+    'transition:background 0.15s, color 0.15s',
   ].join(';')
-  closeBtn.addEventListener('mouseenter', () => { closeBtn.style.background = '#6d28d9' })
-  closeBtn.addEventListener('mouseleave', () => { closeBtn.style.background = '#4f46e5' })
+  closeBtn.addEventListener('mouseenter', () => {
+    closeBtn.style.background = 'rgba(255,255,255,0.25)'
+    closeBtn.style.color = 'white'
+  })
+  closeBtn.addEventListener('mouseleave', () => {
+    closeBtn.style.background = 'rgba(255,255,255,0.12)'
+    closeBtn.style.color = 'rgba(255,255,255,0.8)'
+  })
   closeBtn.addEventListener('click', closePanel)
 
   panelHost.appendChild(iframe)
