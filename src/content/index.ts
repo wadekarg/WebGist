@@ -281,9 +281,69 @@ chrome.runtime.onMessage.addListener(
       return true
     }
 
+    if (message.type === 'TOGGLE_PANEL') {
+      togglePanel()
+      return false
+    }
+
     return false
   }
 )
+
+// ---- Side panel (iframe injected into page) ----
+
+let panelHost: HTMLDivElement | null = null
+let panelOpen = false
+
+function injectPanel() {
+  if (panelHost) return
+
+  panelHost = document.createElement('div')
+  panelHost.id = 'wg-panel-host'
+  panelHost.style.cssText = [
+    'position:fixed', 'top:0', 'right:0',
+    'width:420px', 'height:100vh',
+    'z-index:2147483646',
+    'transform:translateX(100%)',
+    'transition:transform 0.25s cubic-bezier(0.4,0,0.2,1)',
+    'box-shadow:-4px 0 28px rgba(0,0,0,0.45)',
+    'display:flex', 'flex-direction:column',
+  ].join(';')
+
+  const iframe = document.createElement('iframe')
+  iframe.src = chrome.runtime.getURL('popup/index.html')
+  iframe.style.cssText = 'width:100%;flex:1;border:none;display:block;'
+
+  panelHost.appendChild(iframe)
+  document.body.appendChild(panelHost)
+
+  // Close on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && panelOpen) closePanel()
+  })
+}
+
+function openPanel() {
+  injectPanel()
+  panelOpen = true
+  panelHost!.style.transform = 'translateX(0)'
+  // Nudge FAB left so it's not hidden behind the panel
+  const fab = document.getElementById('wg-fab')
+  if (fab) { fab.style.right = '430px'; fab.style.transition = 'right 0.25s cubic-bezier(0.4,0,0.2,1)' }
+}
+
+function closePanel() {
+  if (!panelHost) return
+  panelOpen = false
+  panelHost.style.transform = 'translateX(100%)'
+  const fab = document.getElementById('wg-fab')
+  if (fab) fab.style.right = '24px'
+}
+
+function togglePanel() {
+  if (panelOpen) closePanel()
+  else openPanel()
+}
 
 // ---- Floating action button (draggable) ----
 
@@ -370,7 +430,7 @@ function injectFab() {
 
   btn.addEventListener('click', () => {
     if (moved) return
-    chrome.runtime.sendMessage({ type: 'OPEN_POPUP' })
+    togglePanel()
   })
 
   btn.addEventListener('mouseenter', () => {

@@ -152,9 +152,9 @@ chrome.runtime.onMessage.addListener(
 
     if (message.type === 'OPEN_POPUP') {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const windowId = tabs[0]?.windowId
-        if (windowId) {
-          chrome.sidePanel.open({ windowId }).catch(() => {})
+        const tabId = tabs[0]?.id
+        if (tabId) {
+          chrome.tabs.sendMessage(tabId, { type: 'TOGGLE_PANEL' }).catch(() => {})
         }
       })
       return false
@@ -164,7 +164,11 @@ chrome.runtime.onMessage.addListener(
   }
 )
 
-chrome.runtime.onInstalled.addListener(() => {
-  // Open the side panel when the toolbar icon is clicked
-  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {})
+// Toolbar icon click — toggle the injected side panel on the active tab
+chrome.action.onClicked.addListener((tab) => {
+  if (tab.id) {
+    chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_PANEL' }).catch(() => {})
+  }
 })
+
+chrome.runtime.onInstalled.addListener(() => {})
