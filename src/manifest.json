@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WebGist",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Summarize any webpage with AI. Translate to 84 languages, read aloud, export PDF. 7 free AI providers — no sign-up needed.",
   "action": {
     "default_icon": {
