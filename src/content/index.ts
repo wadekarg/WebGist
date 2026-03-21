@@ -310,10 +310,29 @@ function injectPanel() {
     'display:flex', 'flex-direction:column',
   ].join(';')
 
+  // Close button tab on the left edge of the panel
+  const closeBtn = document.createElement('button')
+  closeBtn.title = 'Close WebGist'
+  closeBtn.innerHTML = '✕'
+  closeBtn.style.cssText = [
+    'position:absolute', 'top:50%', 'left:-28px',
+    'transform:translateY(-50%)',
+    'width:28px', 'height:56px',
+    'background:#4f46e5',
+    'border:none', 'border-radius:8px 0 0 8px',
+    'color:white', 'font-size:13px',
+    'cursor:pointer', 'display:flex',
+    'align-items:center', 'justify-content:center',
+    'box-shadow:-2px 0 8px rgba(0,0,0,0.3)',
+    'z-index:1',
+  ].join(';')
+  closeBtn.addEventListener('click', closePanel)
+
   const iframe = document.createElement('iframe')
   iframe.src = chrome.runtime.getURL('popup/index.html')
   iframe.style.cssText = 'width:100%;flex:1;border:none;display:block;'
 
+  panelHost.appendChild(closeBtn)
   panelHost.appendChild(iframe)
   document.body.appendChild(panelHost)
 
