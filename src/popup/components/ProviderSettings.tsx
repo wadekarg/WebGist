@@ -126,11 +126,16 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
   const apiKeyLinks: Record<string, string> = {
     gemini: 'https://aistudio.google.com/app/apikey',
     groq: 'https://console.groq.com/keys',
+    deepseek: 'https://platform.deepseek.com/api_keys',
+    cerebras: 'https://cloud.cerebras.ai/platform',
+    sambanova: 'https://cloud.sambanova.ai/apis',
+    together: 'https://api.together.xyz/settings/api-keys',
+    nvidia: 'https://build.nvidia.com/settings/api-keys',
+    moonshot: 'https://platform.moonshot.ai/console/api-keys',
     mistral: 'https://console.mistral.ai/api-keys/',
     cohere: 'https://dashboard.cohere.com/api-keys',
     openrouter: 'https://openrouter.ai/settings/keys',
     anthropic: 'https://console.anthropic.com/settings/keys',
-    cerebras: 'https://cloud.cerebras.ai/platform',
   }
 
   return (
