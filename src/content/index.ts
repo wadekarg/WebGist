@@ -293,6 +293,7 @@ chrome.runtime.onMessage.addListener(
 // ---- Side panel (iframe injected into page) ----
 
 let panelHost: HTMLDivElement | null = null
+let panelCloseBtn: HTMLButtonElement | null = null
 let panelOpen = false
 
 function injectPanel() {
@@ -314,30 +315,29 @@ function injectPanel() {
   iframe.src = chrome.runtime.getURL('popup/index.html')
   iframe.style.cssText = 'width:100%;flex:1;border:none;display:block;'
 
-  // Close button — appended after iframe so it renders above it
+  // Close button — sticks out from the left edge of the panel like a tab
   const closeBtn = document.createElement('button')
   closeBtn.title = 'Close WebGist'
   closeBtn.innerHTML = '&times;'
   closeBtn.style.cssText = [
-    'position:absolute', 'top:8px', 'right:8px',
-    'width:26px', 'height:26px',
-    'background:rgba(255,255,255,0.12)',
-    'border:none', 'border-radius:6px',
-    'color:rgba(255,255,255,0.8)', 'font-size:16px', 'line-height:1',
+    'position:absolute', 'top:10px', 'left:-30px',
+    'width:30px', 'height:30px',
+    'background:rgba(79,70,229,0.9)',
+    'border:none', 'border-radius:6px 0 0 6px',
+    'color:white', 'font-size:18px', 'line-height:1',
     'cursor:pointer', 'display:flex',
     'align-items:center', 'justify-content:center',
     'z-index:2147483647',
-    'transition:background 0.15s, color 0.15s',
+    'transition:background 0.15s',
   ].join(';')
-  closeBtn.addEventListener('mouseenter', () => {
-    closeBtn.style.background = 'rgba(255,255,255,0.25)'
-    closeBtn.style.color = 'white'
+  closeBtn.addEventListener('mouseenter', () => { closeBtn.style.background = 'rgba(99,90,255,1)' })
+  closeBtn.addEventListener('mouseleave', () => { closeBtn.style.background = 'rgba(79,70,229,0.9)' })
+  closeBtn.addEventListener('click', () => {
+    panelCloseBtn!.style.display = 'none'
+    closePanel()
   })
-  closeBtn.addEventListener('mouseleave', () => {
-    closeBtn.style.background = 'rgba(255,255,255,0.12)'
-    closeBtn.style.color = 'rgba(255,255,255,0.8)'
-  })
-  closeBtn.addEventListener('click', closePanel)
+
+  panelCloseBtn = closeBtn
 
   panelHost.appendChild(iframe)
   panelHost.appendChild(closeBtn)
@@ -345,7 +345,10 @@ function injectPanel() {
 
   // Close on Escape key
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && panelOpen) closePanel()
+    if (e.key === 'Escape' && panelOpen) {
+      panelCloseBtn!.style.display = 'none'
+      closePanel()
+    }
   })
 }
 
@@ -353,6 +356,7 @@ function openPanel() {
   injectPanel()
   panelOpen = true
   panelHost!.style.transform = 'translateX(0)'
+  if (panelCloseBtn) panelCloseBtn.style.display = 'flex'
   // Nudge FAB left so it's not hidden behind the panel
   const fab = document.getElementById('wg-fab')
   if (fab) { fab.style.right = '430px'; fab.style.transition = 'right 0.25s cubic-bezier(0.4,0,0.2,1)' }
