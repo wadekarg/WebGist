@@ -154,7 +154,7 @@ chrome.runtime.onMessage.addListener(
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const windowId = tabs[0]?.windowId
         if (windowId) {
-          chrome.action.openPopup({ windowId }).catch(() => {})
+          chrome.sidePanel.open({ windowId }).catch(() => {})
         }
       })
       return false
@@ -165,5 +165,6 @@ chrome.runtime.onMessage.addListener(
 )
 
 chrome.runtime.onInstalled.addListener(() => {
-  // Intentionally empty
+  // Open the side panel when the toolbar icon is clicked
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {})
 })

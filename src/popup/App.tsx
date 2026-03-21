@@ -356,8 +356,8 @@ ${data.text.slice(0, 15000)}`
 
   return (
     <div
-      className="w-[420px] max-h-[600px] overflow-y-auto bg-gray-900 text-white flex flex-col"
-      style={{ width: 420, minHeight: 200 }}
+      className="w-full min-h-screen overflow-y-auto bg-gray-900 text-white flex flex-col"
+      style={{ minHeight: '100vh' }}
     >
       <Header activeTab={activeTab} onTabChange={setActiveTab} />
 
