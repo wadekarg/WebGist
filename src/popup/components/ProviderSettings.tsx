@@ -1,118 +1,83 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Eye, EyeOff, Save, CheckCircle, Check } from 'lucide-react'
+import { Eye, EyeOff, Save, CheckCircle } from 'lucide-react'
 import { PROVIDERS } from '../../utils/providers'
 import { Settings, saveSettings } from '../../utils/storage'
 
 interface DropdownProps {
+  label: string
   value: string
   options: { value: string; label: string }[]
   onChange: (value: string) => void
 }
 
-function Dropdown({ value, options, onChange }: DropdownProps) {
+function Dropdown({ label, value, options, onChange }: DropdownProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const selected = options.find((o) => o.value === value)
 
   useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
+    function onOutside(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
-    if (open) document.addEventListener('mousedown', onClickOutside)
-    return () => document.removeEventListener('mousedown', onClickOutside)
+    if (open) document.addEventListener('mousedown', onOutside)
+    return () => document.removeEventListener('mousedown', onOutside)
   }, [open])
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      {/* Trigger button */}
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: '#1f2937',
-          border: open ? '1px solid #6366f1' : '1px solid #4b5563',
-          borderRadius: '8px',
-          padding: '8px 12px',
-          color: 'white',
-          fontSize: '13px',
-          cursor: 'pointer',
-          boxShadow: open ? '0 0 0 1px #6366f1' : 'none',
-          outline: 'none',
-        }}
-      >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {selected?.label ?? value}
-        </span>
-        <svg
-          width="14" height="14" viewBox="0 0 24 24"
+    <div className="flex flex-col gap-1.5">
+      <label className="text-gray-400 text-xs font-medium uppercase tracking-wide">{label}</label>
+      <div ref={ref} className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm text-white cursor-pointer"
           style={{
-            flexShrink: 0,
-            marginLeft: '8px',
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.15s',
+            background: '#111827',
+            border: open ? '1px solid #6366f1' : '1px solid #374151',
+            outline: 'none',
           }}
         >
-          <polyline
-            points="6 9 12 15 18 9"
-            style={{ fill: 'none', stroke: '#9ca3af', strokeWidth: '2.5', strokeLinecap: 'round', strokeLinejoin: 'round' }}
-          />
-        </svg>
-      </button>
+          <span className="truncate text-left">{selected?.label ?? value}</span>
+          <span style={{ color: '#6366f1', fontSize: '12px', flexShrink: 0, fontWeight: 'bold' }}>
+            {open ? '▲' : '▼'}
+          </span>
+        </button>
 
-      {/* Dropdown list */}
-      {open && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 4px)',
-            left: 0,
-            right: 0,
-            background: '#1f2937',
-            border: '1px solid #4b5563',
-            borderRadius: '8px',
-            zIndex: 50,
-            maxHeight: '180px',
-            overflowY: 'auto',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-          }}
-        >
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => { onChange(opt.value); setOpen(false) }}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px 12px',
-                background: opt.value === value ? '#312e81' : 'transparent',
-                border: 'none',
-                color: opt.value === value ? 'white' : '#d1d5db',
-                fontSize: '13px',
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
-              onMouseEnter={(e) => {
-                if (opt.value !== value) (e.currentTarget as HTMLButtonElement).style.background = '#374151'
-              }}
-              onMouseLeave={(e) => {
-                if (opt.value !== value) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
-              }}
-            >
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {opt.label}
-              </span>
-              {opt.value === value && <Check size={13} style={{ flexShrink: 0, color: '#818cf8' }} />}
-            </button>
-          ))}
-        </div>
-      )}
+        {open && (
+          <div
+            className="absolute left-0 right-0 rounded-lg overflow-hidden"
+            style={{
+              top: 'calc(100% + 4px)',
+              background: '#111827',
+              border: '1px solid #374151',
+              zIndex: 100,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+              maxHeight: '180px',
+              overflowY: 'auto',
+            }}
+          >
+            {options.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => { onChange(opt.value); setOpen(false) }}
+                className="w-full flex items-center justify-between px-3 py-2 text-sm text-left cursor-pointer"
+                style={{
+                  background: opt.value === value ? '#1e1b4b' : 'transparent',
+                  color: opt.value === value ? '#a5b4fc' : '#d1d5db',
+                  border: 'none',
+                  borderBottom: '1px solid #1f2937',
+                }}
+                onMouseEnter={e => { if (opt.value !== value) (e.currentTarget as HTMLElement).style.background = '#1f2937' }}
+                onMouseLeave={e => { if (opt.value !== value) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+              >
+                <span className="truncate">{opt.label}</span>
+                {opt.value === value && <span style={{ color: '#6366f1', fontSize: '11px', flexShrink: 0 }}>✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -133,9 +98,7 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
 
   function handleProviderChange(value: string) {
     const provider = PROVIDERS.find((p) => p.id === value)
-    if (provider) {
-      onSettingsChange({ ...settings, providerId: provider.id, model: provider.defaultModel })
-    }
+    if (provider) onSettingsChange({ ...settings, providerId: provider.id, model: provider.defaultModel })
   }
 
   function handleModelChange(value: string) {
@@ -143,10 +106,7 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
   }
 
   function handleApiKeyChange(e: React.ChangeEvent<HTMLInputElement>) {
-    onSettingsChange({
-      ...settings,
-      apiKeys: { ...settings.apiKeys, [settings.providerId]: e.target.value },
-    })
+    onSettingsChange({ ...settings, apiKeys: { ...settings.apiKeys, [settings.providerId]: e.target.value } })
   }
 
   async function handleSave() {
@@ -174,46 +134,47 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div>
-        <h2 className="text-white font-semibold text-sm mb-0.5">AI Provider Settings</h2>
-        <p className="text-gray-400 text-xs">Configure your AI provider and API key</p>
+    <div className="flex flex-col gap-5 p-4">
+
+      {/* Header */}
+      <div className="border-b border-gray-800 pb-3">
+        <h2 className="text-white font-semibold text-sm">AI Provider Settings</h2>
+        <p className="text-gray-500 text-xs mt-0.5">Choose a provider and enter your API key</p>
       </div>
 
-      {/* Provider */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-gray-300 text-xs font-medium">Provider</label>
-        <Dropdown
-          value={settings.providerId}
-          options={PROVIDERS.map((p) => ({ value: p.id, label: p.name }))}
-          onChange={handleProviderChange}
-        />
-        <p className="text-indigo-400 text-[11px] bg-indigo-950/40 border border-indigo-800/30 rounded-md px-2 py-1.5">
-          {selectedProvider.freeNote}
-        </p>
+      {/* Provider dropdown */}
+      <Dropdown
+        label="Provider"
+        value={settings.providerId}
+        options={PROVIDERS.map(p => ({ value: p.id, label: p.name }))}
+        onChange={handleProviderChange}
+      />
+
+      {/* Free note */}
+      <div className="flex items-start gap-2 px-3 py-2 rounded-lg" style={{ background: '#0f172a', border: '1px solid #1e3a5f' }}>
+        <span style={{ color: '#60a5fa', fontSize: '11px' }}>ℹ</span>
+        <p className="text-blue-300 text-[11px] leading-relaxed">{selectedProvider.freeNote}</p>
       </div>
 
-      {/* Model */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-gray-300 text-xs font-medium">Model</label>
-        <Dropdown
-          value={settings.model}
-          options={selectedProvider.models.map((m) => ({ value: m, label: m }))}
-          onChange={handleModelChange}
-        />
-      </div>
+      {/* Model dropdown */}
+      <Dropdown
+        label="Model"
+        value={settings.model}
+        options={selectedProvider.models.map(m => ({ value: m, label: m }))}
+        onChange={handleModelChange}
+      />
 
       {/* API Key */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
-          <label className="text-gray-300 text-xs font-medium">API Key</label>
+          <label className="text-gray-400 text-xs font-medium uppercase tracking-wide">API Key</label>
           <a
             href={apiKeyLinks[settings.providerId] ?? '#'}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-indigo-400 text-[11px] hover:text-indigo-300 underline"
+            className="text-indigo-400 text-[11px] hover:text-indigo-300"
           >
-            Get free API key
+            Get free key →
           </a>
         </div>
         <div className="relative">
@@ -221,47 +182,55 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
             type={showKey ? 'text' : 'password'}
             value={currentApiKey}
             onChange={handleApiKeyChange}
-            placeholder={`Enter your ${selectedProvider.name} API key`}
-            className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 pr-10 text-white text-sm
-                       placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            placeholder={`Paste ${selectedProvider.name} API key…`}
+            className="w-full rounded-lg px-3 py-2.5 pr-10 text-white text-sm placeholder-gray-600
+                       focus:outline-none"
+            style={{
+              background: '#111827',
+              border: '1px solid #374151',
+            }}
+            onFocus={e => (e.currentTarget.style.border = '1px solid #6366f1')}
+            onBlur={e => (e.currentTarget.style.border = '1px solid #374151')}
           />
           <button
+            type="button"
             onClick={() => setShowKey(!showKey)}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
           >
             {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
-        <p className="text-gray-500 text-[11px]">
-          Your API key is stored locally in Chrome storage and never sent anywhere except the AI provider's API.
+        <p className="text-gray-600 text-[11px]">
+          Stored locally — never leaves your browser except to the AI provider.
         </p>
       </div>
 
-      {saveError && <p className="text-red-400 text-xs px-1">{saveError}</p>}
+      {saveError && <p className="text-red-400 text-xs">{saveError}</p>}
 
-      {/* Save button */}
+      {/* Save */}
       <button
         onClick={handleSave}
         disabled={saving || !currentApiKey.trim()}
-        className={`
-          flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium
-          transition-all duration-150
-          ${saved
-            ? 'bg-emerald-600 text-white'
+        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium transition-all"
+        style={{
+          background: saved
+            ? '#059669'
             : currentApiKey.trim()
-            ? 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white'
-            : 'bg-gray-700/60 text-gray-500 cursor-not-allowed'
-          }
-        `}
+            ? 'linear-gradient(to right, #7c3aed, #4f46e5)'
+            : '#1f2937',
+          color: currentApiKey.trim() || saved ? 'white' : '#6b7280',
+          cursor: currentApiKey.trim() ? 'pointer' : 'not-allowed',
+        }}
       >
         {saved ? (
-          <><CheckCircle size={15} />Saved!</>
+          <><CheckCircle size={15} /> Saved!</>
         ) : saving ? (
-          <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving...</>
+          <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving…</>
         ) : (
-          <><Save size={15} />Save Settings</>
+          <><Save size={15} /> Save Settings</>
         )}
       </button>
+
     </div>
   )
 }
