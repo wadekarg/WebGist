@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Eye, EyeOff, Save, CheckCircle } from 'lucide-react'
+import { Eye, EyeOff, Save, CheckCircle, ChevronDown } from 'lucide-react'
 import { PROVIDERS } from '../../utils/providers'
 import { Settings, saveSettings } from '../../utils/storage'
 
@@ -75,19 +75,22 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
       {/* Provider Select */}
       <div className="flex flex-col gap-1.5">
         <label className="text-gray-300 text-xs font-medium">Provider</label>
-        <select
-          value={settings.providerId}
-          onChange={handleProviderChange}
-          className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm
-                     focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
-                     appearance-none cursor-pointer"
-        >
-          {PROVIDERS.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            value={settings.providerId}
+            onChange={handleProviderChange}
+            className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 pr-8 text-white text-sm
+                       focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
+                       appearance-none cursor-pointer"
+          >
+            {PROVIDERS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
         {/* Free tier note */}
         <p className="text-indigo-400 text-[11px] bg-indigo-950/40 border border-indigo-800/30 rounded-md px-2 py-1.5">
           {selectedProvider.freeNote}
@@ -97,19 +100,22 @@ export default function ProviderSettings({ settings, onSettingsChange }: Provide
       {/* Model Select */}
       <div className="flex flex-col gap-1.5">
         <label className="text-gray-300 text-xs font-medium">Model</label>
-        <select
-          value={settings.model}
-          onChange={handleModelChange}
-          className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm
-                     focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
-                     appearance-none cursor-pointer"
-        >
-          {selectedProvider.models.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            value={settings.model}
+            onChange={handleModelChange}
+            className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 pr-8 text-white text-sm
+                       focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
+                       appearance-none cursor-pointer"
+          >
+            {selectedProvider.models.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
       </div>
 
       {/* API Key */}
