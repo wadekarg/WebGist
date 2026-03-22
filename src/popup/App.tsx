@@ -466,58 +466,6 @@ export default function App() {
     }
   }
 
-  // Multi-tab summarization
-  async function handleMultiTabSummarize() {
-    const isOllama = settings.providerId === 'ollama'
-    if (!isOllama && !(settings.apiKeys[settings.providerId] ?? '').trim()) return
-    if (status === 'loading' || status === 'streaming') return
-
-    if (summary) setPrevSummary(summary)
-
-    setStatus('streaming')
-    setErrorMessage('')
-    setSummary('')
-    setTranslatedSummary('')
-    setTranslatedLang('')
-    setTranslatedLangCode('')
-    setIsSaved(false)
-    setIsCached(false)
-    setUsedFallback(null)
-
-    try {
-      const response = await new Promise<{ tabs: { title: string; url: string; text: string }[] }>((resolve, reject) => {
-        chrome.runtime.sendMessage({ type: 'MULTI_TAB_EXTRACT' }, (res) => {
-          if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return }
-          resolve(res as { tabs: { title: string; url: string; text: string }[] })
-        })
-      })
-
-      if (!response.tabs?.length) throw new Error('No tabs to summarize. Select multiple tabs with Ctrl+Click.')
-
-      const systemPrompt = `Summarize the following ${response.tabs.length} webpages together. Identify common themes and key differences. Write 8-10 numbered points. Plain text only — no markdown.`
-
-      const maxPerTab = Math.floor(15000 / response.tabs.length)
-      const userContent = response.tabs
-        .map((t, i) => `--- Page ${i + 1}: ${t.title} ---\nURL: ${t.url}\n${t.text.slice(0, maxPerTab)}`)
-        .join('\n\n')
-
-      setPageData({ text: '', title: `Summary of ${response.tabs.length} pages`, url: '' })
-
-      await sendAiRequestWithFallback(systemPrompt, userContent)
-
-      setSummary(prev => {
-        const trimmed = cleanAiText(prev.trim())
-        setStatus(trimmed ? 'done' : 'error')
-        if (!trimmed) setErrorMessage('AI returned an empty response.')
-        return trimmed || prev
-      })
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'An unexpected error occurred'
-      setErrorMessage(msg)
-      setStatus('error')
-    }
-  }
-
   async function handleResync() {
     setIsCached(false)
     handleSummarize(currentMode)
@@ -689,7 +637,6 @@ export default function App() {
             pageUrl={pageData.url}
             onSummarize={(mode) => handleSummarize(mode)}
             onExtractPage={handleExtractPage}
-            onMultiTab={handleMultiTabSummarize}
             onSave={handleSaveToHistory}
             onResync={handleResync}
             onLengthChange={(len) => {

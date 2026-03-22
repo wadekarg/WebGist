@@ -78,31 +78,6 @@ async function enhancedExtract(tabId: number, url: string, withJina: boolean): P
   return ''
 }
 
-// ---- Multi-tab extraction ----
-
-async function extractMultipleTabs(): Promise<{ title: string; url: string; text: string }[]> {
-  const tabs = await chrome.tabs.query({ highlighted: true, currentWindow: true })
-  const results: { title: string; url: string; text: string }[] = []
-
-  for (const tab of tabs.slice(0, 5)) {
-    if (!tab.id) continue
-    try {
-      const execResult = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: () => document.body.innerText.slice(0, 10000),
-      })
-      results.push({
-        title: tab.title ?? '',
-        url: tab.url ?? '',
-        text: execResult[0]?.result ?? '',
-      })
-    } catch {
-      results.push({ title: tab.title ?? '', url: tab.url ?? '', text: '(Could not extract)' })
-    }
-  }
-  return results
-}
-
 // ---- Offscreen document management ----
 
 const OFFSCREEN_URL = 'offscreen/tts.html'
@@ -176,13 +151,6 @@ chrome.runtime.onMessage.addListener(
       enhancedExtract(tabId, url, withJina ?? false)
         .then((text) => sendResponse({ text }))
         .catch(() => sendResponse({ text: '' }))
-      return true
-    }
-
-    if (message.type === 'MULTI_TAB_EXTRACT') {
-      extractMultipleTabs()
-        .then((tabs) => sendResponse({ tabs }))
-        .catch(() => sendResponse({ tabs: [] }))
       return true
     }
 

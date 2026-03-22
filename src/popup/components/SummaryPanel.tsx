@@ -1,7 +1,7 @@
 import React from 'react'
 import {
   Sparkles, ScrollText, AlertCircle, Copy, CheckCheck,
-  Bookmark, BookmarkCheck, Clock, Layers, RefreshCw,
+  Bookmark, BookmarkCheck, Clock, RefreshCw,
   Plus, X, FileText, ArrowLeftRight,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -34,7 +34,6 @@ interface SummaryPanelProps {
   pageUrl: string
   onSummarize: (mode: string) => void
   onExtractPage: () => void
-  onMultiTab: () => void
   onSave: () => void
   onResync: () => void
   onLengthChange: (len: 'short' | 'medium' | 'long') => void
@@ -68,7 +67,6 @@ export default function SummaryPanel({
   pageUrl,
   onSummarize,
   onExtractPage,
-  onMultiTab,
   onSave,
   onResync,
   onLengthChange,
@@ -312,22 +310,6 @@ export default function SummaryPanel({
           )}
         </button>
 
-        <button
-          onClick={onMultiTab}
-          disabled={isBusy}
-          title="Summarize content from multiple tabs"
-          className={`
-            flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold
-            transition-all duration-150 flex-shrink-0
-            ${isBusy
-              ? 'bg-gray-700/40 text-gray-600 cursor-not-allowed'
-              : 'bg-gray-700/60 hover:bg-gray-600/60 text-gray-300 border border-gray-600/40'
-            }
-          `}
-        >
-          <Layers size={14} />
-          Multi-tab
-        </button>
       </div>
 
       {/* No API key hint */}
