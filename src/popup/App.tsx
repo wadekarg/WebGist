@@ -61,7 +61,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('summary')
   const [settings, setSettings] = useState<Settings>({
     providerId: 'gemini',
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     apiKeys: {},
     customPrompts: [],
     autoSummarize: false,

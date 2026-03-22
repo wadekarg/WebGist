@@ -338,6 +338,11 @@ export default function SummaryPanel({
           <div>
             <p className="text-red-300 text-xs font-medium">Error generating summary</p>
             <p className="text-red-400/80 text-[11px] mt-0.5 break-words">{errorMessage}</p>
+            {(errorMessage.includes('404') || errorMessage.includes('not_found') || errorMessage.includes('does not exist') || errorMessage.includes('model_not_found')) && (
+              <p className="text-amber-400 text-[11px] mt-1.5">
+                This model may have been removed or renamed. Try switching to a different model in Settings.
+              </p>
+            )}
           </div>
         </div>
       )}

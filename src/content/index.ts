@@ -364,8 +364,6 @@ function openPanel() {
   panelOpen = true
   panelHost!.style.transform = 'translateX(0)'
   panelBackdrop!.style.display = 'block'
-  const fab = document.getElementById('wg-fab')
-  if (fab) { fab.style.right = '430px'; fab.style.transition = 'right 0.25s cubic-bezier(0.4,0,0.2,1)' }
 }
 
 function closePanel() {
@@ -373,8 +371,6 @@ function closePanel() {
   panelOpen = false
   panelHost.style.transform = 'translateX(100%)'
   panelBackdrop!.style.display = 'none'
-  const fab = document.getElementById('wg-fab')
-  if (fab) fab.style.right = '24px'
 }
 
 function togglePanel() {

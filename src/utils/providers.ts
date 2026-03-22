@@ -38,9 +38,9 @@ export const PROVIDERS: Provider[] = [
   {
     id: 'gemini',
     name: 'Google Gemini',
-    freeNote: 'Gemini 2.0 Flash — 15 RPM, 1M tokens/day free',
-    models: ['gemini-2.0-flash', 'gemini-1.5-flash'],
-    defaultModel: 'gemini-2.0-flash',
+    freeNote: 'Gemini 2.5 Flash — 10 RPM, 250 RPD free',
+    models: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'],
+    defaultModel: 'gemini-2.5-flash',
     maxInputChars: 60000,
     supportsStreaming: true,
     setupGuide: {
@@ -58,7 +58,7 @@ export const PROVIDERS: Provider[] = [
     id: 'groq',
     name: 'Groq',
     freeNote: 'Llama 3.3 70B — 30 RPM free tier, very fast',
-    models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it'],
+    models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'],
     defaultModel: 'llama-3.3-70b-versatile',
     maxInputChars: 25000,
     supportsStreaming: true,
@@ -95,9 +95,9 @@ export const PROVIDERS: Provider[] = [
   {
     id: 'cerebras',
     name: 'Cerebras',
-    freeNote: 'Llama 3.3 70B — free tier, ultra-fast inference',
-    models: ['llama-3.3-70b', 'llama3.1-8b'],
-    defaultModel: 'llama-3.3-70b',
+    freeNote: 'Llama 3.1 8B — 1M tokens/day free, ultra-fast',
+    models: ['llama3.1-8b'],
+    defaultModel: 'llama3.1-8b',
     maxInputChars: 25000,
     supportsStreaming: true,
     setupGuide: {
@@ -114,8 +114,8 @@ export const PROVIDERS: Provider[] = [
   {
     id: 'sambanova',
     name: 'SambaNova',
-    freeNote: 'Llama 3.3 70B — persistent free tier, 20 RPM',
-    models: ['Meta-Llama-3.3-70B-Instruct', 'Meta-Llama-3.1-405B-Instruct', 'DeepSeek-R1', 'Qwen2.5-72B-Instruct'],
+    freeNote: 'Llama 3.3 70B — $5 free credit, 20 RPM',
+    models: ['Meta-Llama-3.3-70B-Instruct', 'DeepSeek-R1-0528', 'Qwen2.5-72B-Instruct'],
     defaultModel: 'Meta-Llama-3.3-70B-Instruct',
     maxInputChars: 25000,
     supportsStreaming: true,
@@ -171,9 +171,9 @@ export const PROVIDERS: Provider[] = [
   {
     id: 'moonshot',
     name: 'Moonshot (Kimi)',
-    freeNote: 'Kimi AI — free credits on signup, 128k context',
-    models: ['moonshot-v1-128k', 'moonshot-v1-32k', 'moonshot-v1-8k'],
-    defaultModel: 'moonshot-v1-128k',
+    freeNote: 'Kimi K2.5 — free credits on signup, 256k context',
+    models: ['kimi-k2.5', 'moonshot-v1-128k'],
+    defaultModel: 'kimi-k2.5',
     maxInputChars: 60000,
     supportsStreaming: true,
     setupGuide: {
@@ -190,8 +190,8 @@ export const PROVIDERS: Provider[] = [
   {
     id: 'mistral',
     name: 'Mistral',
-    freeNote: 'Mistral Small — 1 req/sec free tier',
-    models: ['mistral-small-latest', 'open-mistral-7b'],
+    freeNote: 'Mistral Small — free Experiment plan, 1B tokens/month',
+    models: ['mistral-small-latest', 'mistral-medium-latest'],
     defaultModel: 'mistral-small-latest',
     maxInputChars: 25000,
     supportsStreaming: true,
@@ -209,9 +209,9 @@ export const PROVIDERS: Provider[] = [
   {
     id: 'cohere',
     name: 'Cohere',
-    freeNote: 'Command R — 20 RPM trial key',
-    models: ['command-r', 'command-r-plus'],
-    defaultModel: 'command-r',
+    freeNote: 'Command A — 20 RPM, 1K calls/month trial key',
+    models: ['command-a-03-2025', 'command-r-08-2024'],
+    defaultModel: 'command-a-03-2025',
     maxInputChars: 25000,
     supportsStreaming: true,
     setupGuide: {
@@ -228,13 +228,13 @@ export const PROVIDERS: Provider[] = [
   {
     id: 'openrouter',
     name: 'OpenRouter',
-    freeNote: 'Multiple free models — Llama, DeepSeek, Gemma & more',
+    freeNote: 'Multiple free models — Llama, Gemma, Mistral & more',
     models: [
       'meta-llama/llama-3.3-70b-instruct:free',
-      'deepseek/deepseek-r1:free',
-      'deepseek/deepseek-chat-v3-0324:free',
-      'google/gemini-2.0-flash-exp:free',
-      'mistralai/mistral-7b-instruct:free',
+      'google/gemma-3-27b-it:free',
+      'mistralai/mistral-small-3.1-24b-instruct:free',
+      'nvidia/nemotron-3-super-120b-a12b:free',
+      'qwen/qwen3-coder:free',
     ],
     defaultModel: 'meta-llama/llama-3.3-70b-instruct:free',
     maxInputChars: 25000,
