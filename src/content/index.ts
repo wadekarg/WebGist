@@ -292,7 +292,7 @@ chrome.runtime.onMessage.addListener(
       setTimeout(() => {
         const iframe = panelHost?.querySelector('iframe')
         if (iframe?.contentWindow) {
-          iframe.contentWindow.postMessage({ type: 'AUTO_SUMMARIZE' }, '*')
+          iframe.contentWindow.postMessage({ type: 'AUTO_SUMMARIZE' }, chrome.runtime.getURL(''))
         }
       }, 500)
       return false
@@ -304,7 +304,7 @@ chrome.runtime.onMessage.addListener(
       setTimeout(() => {
         const iframe = panelHost?.querySelector('iframe')
         if (iframe?.contentWindow) {
-          iframe.contentWindow.postMessage({ type: 'SUMMARIZE_SELECTION', text: message.text }, '*')
+          iframe.contentWindow.postMessage({ type: 'SUMMARIZE_SELECTION', text: message.text }, chrome.runtime.getURL(''))
         }
       }, 500)
       return false
@@ -360,6 +360,7 @@ function injectPanel() {
 
 function openPanel() {
   injectPanel()
+  injectFab()  // inject FAB on first panel open so user can reopen later
   panelOpen = true
   panelHost!.style.transform = 'translateX(0)'
   panelBackdrop!.style.display = 'block'
@@ -482,6 +483,7 @@ function injectFab() {
   else document.addEventListener('DOMContentLoaded', attach)
 }
 
-injectFab()
+// FAB is injected on-demand when the user first opens the panel,
+// not automatically on every page load (CWS policy compliance).
 
 } // end guard

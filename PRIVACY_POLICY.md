@@ -150,7 +150,7 @@ WebGist requests the following Chrome permissions:
 - Jina AI Reader (`r.jina.ai`)
 - Local servers (`127.0.0.1:7777` for Trafilatura, `localhost:11434` for Ollama)
 
-WebGist does **not** request `<all_urls>` host permission. Content is only extracted when you explicitly trigger a summary or extraction.
+**Content script:** WebGist registers a content script that matches all URLs (`<all_urls>`) in order to listen for panel toggle messages from the toolbar icon and keyboard shortcuts. The content script does **not** read or transmit page content automatically — it only extracts text when you explicitly trigger a summary or extraction.
 
 ---
 
