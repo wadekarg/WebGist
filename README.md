@@ -8,14 +8,20 @@ WebGist is a Chrome extension that summarizes any webpage using your choice of A
 
 ## Screenshots
 
-### AI Summary + Floating Button
-![WebGist popup showing an AI summary of the System Design Roadmap page](docs/screenshot-summary.png)
+### AI Summary Panel
+![WebGist panel open on System Design Roadmap page](docs/screenshot-summary.png)
 
-### Translation + Read Aloud + Export
-![WebGist popup showing translation to French and the Read Aloud controls](docs/screenshot-translate.png)
+### Translation + Read Aloud
+![Summary with Chinese translation, read aloud controls, and export options](docs/screenshot-translate.png)
 
-### PDF Export
-![WebGist PDF print dialog showing the formatted summary and French translation](docs/screenshot-export.png)
+### Settings & Provider Setup
+![Settings panel showing provider configuration and setup guide](docs/screenshot-settings.png)
+
+### History & Search
+![History panel with saved summaries](docs/screenshot-history.png)
+
+### Full Example — BBC Article
+![BBC article with summary, translation, read aloud, and export](docs/screenshot-export.png)
 
 ---
 
