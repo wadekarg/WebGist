@@ -1,6 +1,9 @@
 # WebGist — AI Webpage Summarizer for Chrome
 
+[![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Install%20WebGist-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/webgist/dnbidheddllimfeblnkaeoolmcmmdeee)
 [![Hits](https://hits.sh/github.com/wadekarg/WebGist.svg?style=for-the-badge&label=Hits&color=3b82f6&labelColor=1e293b)](https://hits.sh/github.com/wadekarg/WebGist/)
+
+> **WebGist is live on the Chrome Web Store — [try it out!](https://chromewebstore.google.com/detail/webgist/dnbidheddllimfeblnkaeoolmcmmdeee)**
 
 WebGist is a Chrome extension that summarizes any webpage using your choice of AI provider. It also translates summaries into 84 languages, reads them aloud with text-to-speech, exports them to PDF or Markdown, and saves them to a searchable history — all without sending your data to any third-party service beyond the AI provider you choose.
 
@@ -79,7 +82,17 @@ All cloud providers offer a **free tier** — no credit card required. Ollama ru
 
 ## Installation
 
-WebGist is not yet on the Chrome Web Store. Load it manually in developer mode:
+### Option A: Chrome Web Store (Recommended)
+
+The easiest way — install directly from the Chrome Web Store:
+
+**[Install WebGist on Chrome](https://chromewebstore.google.com/detail/webgist/dnbidheddllimfeblnkaeoolmcmmdeee)**
+
+No build step needed. The WebGist icon will appear in your toolbar after install — pin it for easy access.
+
+### Option B: Load from Source (Developer Mode)
+
+If you want to run the latest development version:
 
 1. **Download or clone this repository**
    ```bash
